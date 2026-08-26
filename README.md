@@ -14,14 +14,14 @@ demonstrable, and nothing proceeds while the previous step's tests are red.
 
 | # | Step | State |
 |---|---|---|
-| 1 | Schema and access control | **built** — T24–T26 green; T1–T23 written, awaiting credentials to run |
+| 1 | Schema and access control | **done** — T1–T26 green through real sessions |
 | 2 | Registry and partner administration | **built** |
 | 3 | Identity and invitations | **built** — T16–T19 verified |
-| 4 | Submission — `submit_rates`, parser, grid, bands, supersession | **RPC + parser built** — golden 1 and 3 green; grid UI outstanding |
-| 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | **RPCs built and verified**; board UI outstanding |
-| 6 | Correction, withdrawal, history | **RPCs built and verified**; history UI outstanding |
-| 7 | Health and audit pages | **`partner_health` built**, per partner-pair; pages outstanding |
-| 8 | Degraded states, accessibility, seed data, restore rehearsal | **seed data built**; rest outstanding |
+| 4 | Submission — `submit_rates`, parser, grid, bands, supersession | **done** — grid verified in a browser |
+| 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | **done** — verified in a browser |
+| 6 | Correction, withdrawal, history | **done** |
+| 7 | Health and audit pages | **done** — per partner-pair |
+| 8 | Degraded states, accessibility, seed data, restore rehearsal | seed + degraded states done; **axe scan and restore rehearsal outstanding** |
 
 Step 1 ships *"with T1 to T26 green and no application at all. If the foundation
 is wrong, everything above it is wrong, and this is the cheapest point to find
