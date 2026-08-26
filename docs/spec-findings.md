@@ -622,3 +622,71 @@ and remove-row are real `<button>`s, as §16.2 requires.
 **Still owed by a human:** an actual tab-through of each page. The static checks
 prove nothing is structurally unreachable; they cannot prove the resulting
 order is sensible.
+
+---
+
+## F17 — Missing configuration took down every route at once
+
+**Severity: high. Status: CLOSED.**
+
+The first Vercel deployment built successfully and then returned
+`MIDDLEWARE_INVOCATION_FAILED` — a bare 500 with no detail — on **every** path,
+including `/login`. The cause:
+
+```
+Error: Your project's URL and Key are required to create a Supabase client!
+  route=/middleware  count=3  users=2
+```
+
+The environment variables were unset, so `createServerClient` threw inside
+middleware. Middleware runs on every route, so a single throw there is a
+total outage rather than a degraded page.
+
+Missing configuration *is* a real failure and must not be papered over — but
+the failure has to land somewhere that can explain it. Middleware now checks
+for the variables, and when they are absent it skips the session refresh,
+still applies the CSP and security headers, and redirects to `/misconfigured`,
+which names exactly which variables are missing and prints no values
+(`SUPABASE_SERVICE_ROLE_KEY` is reported only as present or absent, per §12.3).
+
+Verified by running a production build with the variables emptied:
+
+```
+/login          307 -> /misconfigured
+/board          307 -> /misconfigured
+/misconfigured  200, names the missing vars, leaks no values, CSP present
+```
+
+The same path now covers a rotated or mistyped key, not just a first deploy.
+
+---
+
+## N3 — Vercel deployment protection: correcting an earlier claim
+
+**Status: NOTED — the earlier assessment in this session was wrong.**
+
+It was stated during the build that deployment protection is unavailable on
+Vercel's hobby plan, and therefore that the internal-only app (D1) would be
+publicly reachable. **That is incorrect.** The project reports:
+
+```
+ssoProtection: enabled, deploymentType "all_except_custom_domains"
+passwordProtection: disabled
+trustedIps: disabled
+```
+
+Vercel Authentication is on and covers every `*.vercel.app` URL, production and
+preview, so the deployment is not publicly reachable today. It is *password*
+protection that is the paid feature, not SSO protection.
+
+Two consequences worth keeping in view:
+
+- **A custom domain would not be protected.** `all_except_custom_domains` means
+  attaching `ratehub.metacomp...` removes the Vercel Authentication gate for
+  that hostname. At that point the only control is the application's own
+  magic-link sign-in plus RLS — which is the designed boundary (§5: "the
+  database is the boundary"), and T21 shows `anon` reads nothing. But the
+  change in posture should be a deliberate decision, not a side effect of
+  adding a domain.
+- **Vercel Authentication gates humans, not correctness.** It is not a
+  substitute for anything in §12; it sits in front of it.

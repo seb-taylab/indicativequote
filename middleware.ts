@@ -38,6 +38,9 @@ export async function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isDev = process.env.NODE_ENV === 'development';
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
@@ -57,9 +60,29 @@ export async function middleware(request: NextRequest) {
 
   let response = NextResponse.next({ request: { headers: requestHeaders } });
 
+  // Middleware runs on EVERY route, so anything that throws here takes the
+  // whole site down at once. Observed on the first Vercel deploy: with the
+  // Supabase environment variables unset, createServerClient threw and every
+  // path -- including /login -- returned MIDDLEWARE_INVOCATION_FAILED, a 500
+  // with nothing in it to diagnose from.
+  //
+  // Missing configuration is a real failure and must not be papered over, but
+  // it belongs in a page that can EXPLAIN it. So the session refresh is
+  // skipped, the security headers are still applied, and /misconfigured says
+  // which variables are absent. The same path protects against a rotated or
+  // mistyped key later.
+  if (!url || !anonKey) {
+    const isMisconfigPage = request.nextUrl.pathname === '/misconfigured';
+    const out = isMisconfigPage
+      ? NextResponse.next({ request: { headers: requestHeaders } })
+      : NextResponse.redirect(new URL('/misconfigured', request.url));
+    out.headers.set('content-security-policy', csp);
+    return out;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
