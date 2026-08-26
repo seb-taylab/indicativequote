@@ -48,7 +48,7 @@ export function PartnerRow({
         </td>
         <td className="px-2 py-2">
           <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
-                  className="rounded border px-2 py-1 text-xs" style={{ borderColor: 'var(--border)' }}>
+                  className="rounded border px-2 py-1 text-xs" style={{ borderColor: 'var(--control-border)' }}>
             {open ? 'Close' : 'Manage'}
           </button>
         </td>
@@ -101,7 +101,7 @@ export function PartnerRow({
                       onChange={(e) => setRef(e.target.value)}
                       placeholder="e.g. signed e-mail 2026-08-26"
                       className="w-full rounded border px-2 py-1.5 text-sm"
-                      style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                      style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
                     />
                     <button
                       disabled={pending || !ref.trim()}

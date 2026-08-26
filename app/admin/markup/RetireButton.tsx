@@ -26,7 +26,7 @@ export function RetireButton({ id, pair }: { id: string; pair: string }) {
           });
         }}
         className="rounded border px-2 py-1 text-xs"
-        style={{ borderColor: 'var(--border)' }}
+        style={{ borderColor: 'var(--control-border)' }}
       >
         Retire version
       </button>

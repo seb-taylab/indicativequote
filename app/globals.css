@@ -14,7 +14,13 @@
 :root {
   --bg: #ffffff;
   --surface: #f8fafc;
+  /* Decorative rules only: table separators, panel edges. WCAG 1.4.11 does not
+     apply to these -- they carry no information a user must perceive. */
   --border: #d4dae2;
+  /* The visible boundary of an INPUT, SELECT or BUTTON. WCAG 2.1 SC 1.4.11
+     "Non-text Contrast" requires >= 3:1 against the adjacent background, so
+     this is a separate, stronger token. Using --border here would fail AA. */
+  --control-border: #6b7280;
   --text: #10151c;
   --muted: #4b5563;
 
@@ -35,6 +41,7 @@
     --bg: #0b0f14;
     --surface: #131a23;
     --border: #2b3644;
+    --control-border: #8593a5;
     --text: #eef2f7;
     --muted: #9aa7b6;
 
@@ -66,11 +73,26 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Controls carry the stronger boundary token -- WCAG 1.4.11. */
+:where(input, select, textarea, button) {
+  border-color: var(--control-border);
+}
+
 /* §16.2: every control has a visible focus state. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 3px;
+}
+
+/* A composite control -- a borderless input inside a bordered wrapper -- must
+   still show focus. WCAG 2.4.7 is about the indicator being VISIBLE, not about
+   which element carries it, so the wrapper adopts it via :focus-within. Without
+   this, `outline-none` on the inner input leaves a keyboard user with no idea
+   where they are. */
+.focus-ring-within:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* §16.2: tables scroll inside their own container; the body never scrolls

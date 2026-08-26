@@ -221,7 +221,7 @@ export function SubmitGrid({
           autoFocus
           placeholder={lastRaw ?? 'USD/NGN 1392 | 1394\nUSD/GHS 11.77-11.81'}
           className="num mt-1 w-full rounded border p-3 text-sm"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
         />
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <button
@@ -234,7 +234,7 @@ export function SubmitGrid({
           </button>
           <span className="text-sm" style={{ color: 'var(--muted)' }}>or</span>
           <button onClick={addBlankRow} className="rounded border px-3 py-1.5 text-sm"
-                  style={{ borderColor: 'var(--border)' }}>
+                  style={{ borderColor: 'var(--control-border)' }}>
             start with an empty row
           </button>
         </div>
@@ -308,7 +308,7 @@ export function SubmitGrid({
                           onChange={(e) => update(row.key, { currencyPairId: e.target.value })}
                           aria-label="Currency pair"
                           className="num rounded border px-1 py-1"
-                          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
                         >
                           {pairs.map((p) => (
                             <option key={p.id} value={p.id}>{p.base_ccy}/{p.quote_ccy}</option>
@@ -322,7 +322,7 @@ export function SubmitGrid({
                           aria-label="Bid"
                           disabled={pair?.quote_mode === 'ask_only'}
                           className="num w-28 rounded border px-1 py-1 text-right disabled:opacity-40"
-                          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
                         />
                         {prior && prior.bid && prior.bid !== row.bid && (
                           <div className="num text-xs line-through" style={{ color: 'var(--muted)' }}>
@@ -337,7 +337,7 @@ export function SubmitGrid({
                           aria-label="Ask"
                           disabled={pair?.quote_mode === 'bid_only'}
                           className="num w-28 rounded border px-1 py-1 text-right disabled:opacity-40"
-                          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
                         />
                         {prior && prior.ask && prior.ask !== row.ask && (
                           <div className="num text-xs line-through" style={{ color: 'var(--muted)' }}>
@@ -359,11 +359,11 @@ export function SubmitGrid({
                             <input value={row.minSize} onChange={(e) => update(row.key, { minSize: e.target.value })}
                                    aria-label="Minimum size" placeholder="min"
                                    className="num w-24 rounded border px-1 py-1"
-                                   style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                   style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }} />
                             <input value={row.maxSize} onChange={(e) => update(row.key, { maxSize: e.target.value })}
                                    aria-label="Maximum size" placeholder="max"
                                    className="num w-24 rounded border px-1 py-1"
-                                   style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                                   style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }} />
                           </div>
                         )}
                       </td>
@@ -391,7 +391,7 @@ export function SubmitGrid({
                       <td className="px-2 py-2">
                         <button onClick={() => remove(row.key)}
                                 className="rounded border px-2 py-1 text-xs"
-                                style={{ borderColor: 'var(--border)' }}>
+                                style={{ borderColor: 'var(--control-border)' }}>
                           Remove
                         </button>
                       </td>
@@ -403,7 +403,7 @@ export function SubmitGrid({
           </div>
 
           <button onClick={addBlankRow} className="mt-2 rounded border px-3 py-1.5 text-sm"
-                  style={{ borderColor: 'var(--border)' }}>
+                  style={{ borderColor: 'var(--control-border)' }}>
             Add row
           </button>
 
@@ -420,7 +420,7 @@ export function SubmitGrid({
                 value={validOverride}
                 onChange={(e) => setValidOverride(e.target.value)}
                 className="num mt-1 rounded border px-2 py-1.5"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
               />
             </div>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>

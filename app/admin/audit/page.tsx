@@ -59,7 +59,7 @@ export default async function AuditPage({
           <label htmlFor="action" className="block text-xs font-medium">Action</label>
           <select id="action" name="action" defaultValue={sp.action ?? ''}
                   className="mt-1 rounded border px-2 py-1.5"
-                  style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}>
+                  style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}>
             <option value="">All</option>
             {ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -68,7 +68,7 @@ export default async function AuditPage({
           <label htmlFor="partner" className="block text-xs font-medium">Partner</label>
           <select id="partner" name="partner" defaultValue={sp.partner ?? ''}
                   className="mt-1 rounded border px-2 py-1.5"
-                  style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}>
+                  style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}>
             <option value="">All</option>
             {(partners ?? []).map((p) => (
               <option key={p.id as string} value={p.id as string}>{p.display_name as string}</option>
@@ -79,13 +79,13 @@ export default async function AuditPage({
           <label htmlFor="from" className="block text-xs font-medium">From</label>
           <input id="from" name="from" type="date" defaultValue={sp.from ?? ''}
                  className="num mt-1 rounded border px-2 py-1.5"
-                 style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                 style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }} />
         </div>
         <div>
           <label htmlFor="to" className="block text-xs font-medium">To</label>
           <input id="to" name="to" type="date" defaultValue={sp.to ?? ''}
                  className="num mt-1 rounded border px-2 py-1.5"
-                 style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                 style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }} />
         </div>
         <button type="submit" className="rounded px-3 py-1.5 text-sm font-medium text-white"
                 style={{ background: 'var(--accent)' }}>

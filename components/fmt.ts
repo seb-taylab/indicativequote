@@ -53,6 +53,23 @@ export function age(iso: string | null): string {
 export function dec(value: string | null, opts?: { group?: boolean; minDp?: number }): string {
   if (value === null || value === undefined || value === '') return '—';
 
+  // §12.7 tripwire. A `number` here means a decimal reached JavaScript as a
+  // binary double -- almost always a numeric column read straight through
+  // PostgREST without a ::text cast. By this point precision is ALREADY LOST,
+  // so coercing with String(value) would render a corrupted figure and hide
+  // the cause forever.
+  //
+  // This is exactly how the partner pages broke: they read v_current_rates
+  // directly while every RPC was casting to text. Failing loudly is the only
+  // behaviour that keeps D13 true, so this throws and names the fix.
+  if (typeof value !== 'string') {
+    throw new TypeError(
+      `dec() received a ${typeof value}, not a string. A decimal has crossed the ` +
+        `wire as a JSON number and its precision is already gone (§12.7/D13). ` +
+        `Cast the column to ::text in the view or RPC that produced it.`,
+    );
+  }
+
   const neg = value.startsWith('-');
   const body = neg ? value.slice(1) : value;
   const [intPartRaw, fracRaw = ''] = body.split('.');

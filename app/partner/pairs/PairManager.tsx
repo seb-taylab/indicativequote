@@ -77,7 +77,7 @@ export function PairManager({ own, available }: { own: OwnPair[]; available: Ava
                         disabled={pending || !p.active}
                         onChange={(e) => run(() => setQuoteMode(p.id, e.target.value))}
                         className="rounded border px-1 py-1"
-                        style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                        style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
                       >
                         {MODES.map((m) => (
                           <option key={m.value} value={m.value}>{m.label}</option>
@@ -94,7 +94,7 @@ export function PairManager({ own, available }: { own: OwnPair[]; available: Ava
                         disabled={pending}
                         onClick={() => run(() => setPairActive(p.id, !p.active))}
                         className="rounded border px-2 py-1 text-xs"
-                        style={{ borderColor: 'var(--border)' }}
+                        style={{ borderColor: 'var(--control-border)' }}
                       >
                         {p.active ? 'Deactivate' : 'Reactivate'}
                       </button>
@@ -127,7 +127,7 @@ export function PairManager({ own, available }: { own: OwnPair[]; available: Ava
                 value={toAdd}
                 onChange={(e) => setToAdd(e.target.value)}
                 className="num mt-1 rounded border px-2 py-1.5"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
               >
                 {available.map((p) => (
                   <option key={p.id} value={p.id}>{p.base_ccy}/{p.quote_ccy}</option>

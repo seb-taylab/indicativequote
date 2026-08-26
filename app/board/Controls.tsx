@@ -72,7 +72,7 @@ export function Controls({
           value={pairId}
           onChange={(e) => push({ pair: e.target.value })}
           className="num mt-1 rounded border px-2 py-1.5"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
         >
           {pairs.map((p) => (
             <option key={p.id} value={p.id}>{p.base_ccy}/{p.quote_ccy}</option>
@@ -87,7 +87,7 @@ export function Controls({
           value={direction}
           onChange={(e) => push({ direction: e.target.value })}
           className="mt-1 rounded border px-2 py-1.5"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
         >
           <option value="client_sells_base">Client sells {pair?.base_ccy ?? 'base'}</option>
           <option value="client_buys_base">Client buys {pair?.base_ccy ?? 'base'}</option>
@@ -98,7 +98,10 @@ export function Controls({
         <label htmlFor="amount" className="block text-xs font-medium">
           Amount <span style={{ color: 'var(--muted)' }}>(optional)</span>
         </label>
-        <div className="mt-1 flex items-center rounded border" style={{ borderColor: 'var(--border)' }}>
+        {/* This wrapper carries the amount field's visible boundary -- the
+            input inside it is borderless so the currency suffix sits flush --
+            so it takes the control token, not the decorative one (WCAG 1.4.11). */}
+        <div className="focus-ring-within mt-1 flex items-center rounded border" style={{ borderColor: 'var(--control-border)' }}>
           <input
             id="amount"
             inputMode="decimal"
@@ -109,6 +112,8 @@ export function Controls({
             aria-describedby={amountError ? 'amount-error' : undefined}
             aria-invalid={amountError ? true : undefined}
             className="num w-40 bg-transparent px-2 py-1.5 outline-none"
+            /* The wrapper shows the focus ring via :focus-within, so suppressing
+               it on the input itself does not lose the indicator (WCAG 2.4.7). */
             style={{ color: 'var(--text)' }}
           />
           {/* D9: a fixed suffix, never a selector. */}
@@ -142,7 +147,7 @@ export function Controls({
             if (e.key === 'Enter') { e.preventDefault(); push({ markup: e.currentTarget.value.trim() }); }
           }}
           className="num mt-1 w-28 rounded border px-2 py-1.5 disabled:opacity-50"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
         />
       </div>
     </div>

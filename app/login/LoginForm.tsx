@@ -34,7 +34,7 @@ export function LoginForm() {
           required
           autoFocus
           className="mt-1 w-full rounded border px-3 py-2"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
         />
       </div>
       <button

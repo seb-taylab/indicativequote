@@ -17,27 +17,20 @@ export default async function HistoryPage() {
   const principal = await requirePartner(['partner_user', 'partner_admin']);
   const sb = await supabaseServer();
 
+  // §12.7: v_rate_history emits decimals as text. Reading `rates` directly
+  // would deliver them as JSON numbers, i.e. as binary doubles.
   const { data: rates } = await sb
-    .from('rates')
+    .from('v_rate_history')
     .select(`
       id, partner_bid, partner_ask, size_status, min_size, max_size,
       observed_at, submitted_at, valid_until, superseded_at, withdrawn_at,
       withdrawn_reason, correction_of, normalised_from_inverse,
-      partner_pairs(currency_pairs(base_ccy, quote_ccy))
+      base_ccy, quote_ccy, lifecycle
     `)
     .order('submitted_at', { ascending: false })
     .limit(200);
 
   const rows = rates ?? [];
-
-  function lifecycle(r: (typeof rows)[number]): { label: string; cls: string } {
-    if (r.withdrawn_at) return { label: 'withdrawn', cls: 'status-expired' };
-    if (r.superseded_at) return { label: 'superseded', cls: 'status-neutral' };
-    if (new Date(r.valid_until as string) <= new Date()) {
-      return { label: 'expired', cls: 'status-expired' };
-    }
-    return { label: 'current', cls: 'status-live' };
-  }
 
   return (
     <AppShell principal={principal} title="Submission history">
@@ -67,13 +60,17 @@ export default async function HistoryPage() {
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const cp = (r.partner_pairs as unknown as
-                    { currency_pairs: { base_ccy: string; quote_ccy: string } | null } | null)
-                    ?.currency_pairs;
-                  const life = lifecycle(r);
+                  const life = {
+                    label: r.lifecycle as string,
+                    cls:
+                      r.lifecycle === 'withdrawn' ? 'status-expired'
+                      : r.lifecycle === 'superseded' ? 'status-neutral'
+                      : r.lifecycle === 'expired' ? 'status-expired'
+                      : 'status-live',
+                  };
                   return (
                     <tr key={r.id as string} style={{ borderBottom: `1px solid var(--border)` }}>
-                      <td className="num px-2 py-2">{cp?.base_ccy}/{cp?.quote_ccy}</td>
+                      <td className="num px-2 py-2">{r.base_ccy as string}/{r.quote_ccy as string}</td>
                       <td className="num px-2 py-2 text-right">{dec(r.partner_bid as string | null)}</td>
                       <td className="num px-2 py-2 text-right">{dec(r.partner_ask as string | null)}</td>
                       <td className="num px-2 py-2">

@@ -121,7 +121,7 @@ export function BoardTable({ result }: { result: BoardResult }) {
                       onClick={() => onCopy(row)}
                       disabled={busy === row.rate_id}
                       className="rounded border px-2 py-1 text-xs font-medium"
-                      style={{ borderColor: 'var(--border)' }}
+                      style={{ borderColor: 'var(--control-border)' }}
                     >
                       {copied === row.rate_id ? 'Copied' : busy === row.rate_id ? '…' : 'Copy quote'}
                     </button>

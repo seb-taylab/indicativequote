@@ -80,7 +80,7 @@ export function PrincipalRow({
                 disabled={pending}
                 onChange={(e) => run(() => setStaffRole(id, e.target.value))}
                 className="rounded border px-1 py-0.5 text-xs"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                style={{ borderColor: 'var(--control-border)', background: 'var(--bg)', color: 'var(--text)' }}
               >
                 {STAFF_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
@@ -105,7 +105,7 @@ export function PrincipalRow({
               disabled={pending || revokeBlocked || (kind === 'staff' && !canAdmin)}
               title={revokeBlocked ? revokeBlockedWhy : undefined}
               className="rounded border px-2 py-1 text-xs disabled:opacity-40"
-              style={{ borderColor: 'var(--border)' }}
+              style={{ borderColor: 'var(--control-border)' }}
             >
               Revoke
             </button>

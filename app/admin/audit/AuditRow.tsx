@@ -23,7 +23,7 @@ export function AuditRow({
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             className="rounded border px-2 py-1 text-xs"
-            style={{ borderColor: 'var(--border)' }}
+            style={{ borderColor: 'var(--control-border)' }}
           >
             {open ? 'Hide' : 'Show'}
           </button>

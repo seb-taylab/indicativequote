@@ -533,3 +533,92 @@ committed or pushed.
 
 **Worth keeping as a habit:** run `git check-ignore -v <file>` on anything
 holding a secret, rather than trusting a pattern to be broad enough.
+
+---
+
+## F15 — Decimals reached the browser as JSON numbers on the partner pages
+
+**Severity: high. Status: CLOSED — views emit text, and `dec()` now refuses a number.**
+
+§12.7 states the failure exactly: *"PostgREST serialises `numeric` as a JSON
+number, and JavaScript parses every JSON number as a binary double — so a rate
+can lose precision on the way to the browser without a single float appearing
+in the schema."*
+
+Rule 1 names **RPCs**, and every RPC complied — `board_rates` and
+`record_quote_copy` cast every decimal to `::text`. But the partner pages read
+`v_current_rates` and `rates` **directly through PostgREST**, which is the same
+boundary with the same defect. A partner's own rates were arriving as binary
+doubles. §11.8's normative view definition returns `numeric`, so building it as
+specified produced the very outcome D13 forbids.
+
+**How it was found, which is the interesting part.** Not by a precision test —
+by the axe scan reporting `html-has-lang` on `/partner` and `/partner/history`.
+Those pages were returning `<html id="__next_error__">`: a 500. The accessibility
+violation was a symptom. The underlying crash was
+`value.startsWith is not a function` in `dec()`, because it had been handed a
+number.
+
+**The crash was luck.** Had `dec()` coerced with `String(value)`, every page
+would have rendered a plausible, silently corrupted figure and the defect would
+have survived indefinitely — there is no visual difference between
+`1501.5` and a double that has lost its last digits.
+
+**Fix, in two parts.**
+
+1. `v_current_rates` emits `partner_bid`, `partner_ask`, `min_size` and
+   `max_size` as `text`. Column names and the exposed set are unchanged from
+   §11.8; only the wire type changes. A new `v_rate_history` does the same for
+   the history page, which needs the superseded and withdrawn rows the current
+   view excludes by definition.
+2. `dec()` **throws** on a non-string, naming §12.7 and the required `::text`
+   cast. Failing loudly is the only behaviour that keeps D13 true; a defensive
+   coercion would have hidden exactly this bug.
+
+**Generalisation worth adopting:** §12.7 rule 1 is written about RPCs, but the
+rule is about the *boundary*. Any view or table read directly by PostgREST is
+the same boundary and needs the same treatment.
+
+---
+
+## F16 — Accessibility: two real defects, and one rule axe could not run
+
+**Severity: medium. Status: CLOSED.**
+
+§16.2 requires WCAG 2.1 AA, contrast checked in both themes, and *"an automated
+axe scan plus one keyboard-only pass per page"*. Both halves are now scripted:
+`npm run a11y`.
+
+**What axe cannot do here, stated rather than glossed.** The scan runs in jsdom,
+which has no layout and no cascade, so the `color-contrast` rule **cannot
+execute**. Reporting a pass on a rule that never ran would be worse than not
+running it, so the rule is explicitly disabled in the scan and contrast is
+checked separately and deterministically by `scripts/contrast-check.mjs`
+against the palette tokens, in light and dark.
+
+**Defect 1 — control boundaries below 3:1.** `--border` was used both for
+decorative table rules and for the visible edge of inputs, selects and buttons.
+It measured **1.41:1** (light) and **1.57:1** (dark), against the 3:1 that
+WCAG 2.1 SC 1.4.11 requires for *user interface components*. A decorative rule
+is exempt; a control's boundary is not. Split into a separate
+`--control-border` token at 4.83:1 and 6.14:1, applied to 29 control elements.
+
+The blunt fix — darkening `--border` everywhere — would have passed the checker
+while making every table heavier to read, and would have conflated two things
+the standard treats differently.
+
+**Defect 2 — a focus indicator removed.** The board's amount field is a
+borderless input inside a bordered wrapper, so the currency suffix sits flush.
+It carried `outline-none`, which removed its focus ring entirely: a keyboard
+user tabbing to it saw nothing (WCAG 2.4.7). Fixed by moving the indicator to
+the wrapper with `:focus-within` — 2.4.7 requires the indicator to be *visible*,
+not to sit on any particular element.
+
+**Result:** 12 routes, 0 violations, 214 checks passed; every rendered colour
+pair AA in both themes. The static keyboard checks are clean too — no positive
+`tabIndex`, no `onClick` on a non-interactive element, and the grid's add-row
+and remove-row are real `<button>`s, as §16.2 requires.
+
+**Still owed by a human:** an actual tab-through of each page. The static checks
+prove nothing is structurally unreachable; they cannot prove the resulting
+order is sensible.
