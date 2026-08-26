@@ -760,3 +760,46 @@ not mention and that no test in this repository can catch.
 so the operator can see what the user must not be told. That is the same
 shape as F10 — a signal that must not appear in the response body still needs
 somewhere to go.
+
+---
+
+## F20 — Two schema changes reached the database with no migration file
+
+**Severity: high. Status: CLOSED — files reconstructed, guard test added.**
+
+§18.1: *"Migrations are files in version control, applied in order, never
+hand-edited in a dashboard. A schema change that reaches production without a
+migration file is an incident, not a shortcut."*
+
+Two had. Found by comparing `app.schema_migrations` against
+`supabase/migrations/`:
+
+| Applied to the database | File |
+|---|---|
+| `app.fmt_num` + the `board_rates` rewrite with readable reasons | missing |
+| `v_rate_history` + `v_current_rates` emitting `text` | missing |
+
+**What a rebuild from files alone would have produced.** Not an outage — a
+*working* application with a defect silently restored. `v_current_rates` would
+return `numeric` again, PostgREST would serialise every rate as a JSON number,
+and JavaScript would parse it as a binary double: F15 verbatim, on a fresh
+staging environment or a DR restore, with nothing failing to announce it. The
+withheld-reason formatting would have regressed too.
+
+This is the exact shape §18.1 is warning about, and it is worth being blunt
+that a green test suite did **not** catch it — every test ran against the
+drifted database, where the changes were present. A suite passing against a
+database that no file describes proves nothing about what a deployment would
+contain.
+
+**Fix.** Both files reconstructed from the live catalogue via
+`pg_get_functiondef` and `pg_get_viewdef`, so they provably match what is
+deployed rather than what anyone remembers writing
+(`scripts/reconstruct-migrations.mjs`). Ledger reconciled: 23 files, 23
+applied, exact match.
+
+**Durable fix.** `tests/schema/invariants.test.ts` now asserts the two sets are
+equal in both directions — an applied migration with no file, and a file never
+applied, both fail. Fixing the instance without the guard would have left the
+next direct `apply_migration` free to do it again, and the pressure to do that
+is highest exactly when someone is moving fast.

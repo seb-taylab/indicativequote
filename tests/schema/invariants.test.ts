@@ -229,3 +229,33 @@ describe('The immutability spine (§21.2)', () => {
     expect(rows.map((r) => r.offender)).toEqual([]);
   });
 });
+
+describe('§18.1 -- the migration files ARE the schema', () => {
+  // "Migrations are files in version control, applied in order, never
+  //  hand-edited in a dashboard. A schema change that reaches production
+  //  without a migration file is an incident, not a shortcut."
+  //
+  // This has already happened once in this project: app.fmt_num, v_rate_history
+  // and v_current_rates' text columns were applied directly and existed for a
+  // period with no file. A rebuild from files would silently have restored the
+  // F15 precision defect -- decimals crossing the wire as JSON numbers -- with
+  // nothing failing to announce it.
+  //
+  // A green test suite against a drifted database proves nothing about what a
+  // fresh deployment would contain, which is exactly why this is asserted
+  // rather than trusted.
+  it('has a file for every applied migration, and applies every file', async () => {
+    const { readdirSync } = await import('node:fs');
+
+    const applied = (await q<{ name: string }>('select name from app.schema_migrations')).map(
+      (r) => r.name,
+    );
+    const onDisk = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql'));
+
+    const appliedWithoutFile = applied.filter((n) => !onDisk.includes(n)).sort();
+    const fileNotApplied = onDisk.filter((n) => !applied.includes(n)).sort();
+
+    expect(appliedWithoutFile, 'applied to the database with no migration file').toEqual([]);
+    expect(fileNotApplied, 'migration file never applied').toEqual([]);
+  });
+});
