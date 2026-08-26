@@ -690,3 +690,73 @@ Two consequences worth keeping in view:
   adding a domain.
 - **Vercel Authentication gates humans, not correctness.** It is not a
   substitute for anything in §12; it sits in front of it.
+
+---
+
+## F18 — Self-signup is enabled, contradicting the invite-only model
+
+**Severity: medium. Status: OPEN — needs a dashboard change.**
+
+`auth.signUp()` from an anonymous client is accepted by the platform. The probe
+was stopped only by an email rate limit, not by policy — meaning **anyone with
+the publishable key can create an `auth.users` row**.
+
+That contradicts the access model. D15: *"Backbone owns all access management"*,
+and §13.2 makes `invite_partner_user` and `invite_staff` the only paths that
+create a principal. Self-signup does not create a principal, so a self-registered
+account is inert — `app.principal_id()` returns null, `currentPrincipal()`
+returns null, and RLS denies everything (T21 covers exactly this shape). The
+database boundary holds.
+
+But three things are still wrong with leaving it on:
+
+1. It lets an outsider write rows into `auth.users` at will.
+2. It turns the project into an **e-mail sending vector** — each attempt sends a
+   confirmation to an address the attacker chooses.
+3. It exhausts the shared e-mail quota that real sign-ins depend on (F19).
+
+**Fix (dashboard, no code):** Authentication → Sign In / Providers → Email →
+disable **Allow new users to sign up**. Sign-in continues to work; only
+self-registration stops. Magic links for invited principals are unaffected,
+because `sign_in_allowed` already gates those against `principals`.
+
+Also noted by the advisor: *leaked password protection disabled*. That is moot
+here — §19 mandates magic link and **no passwords anywhere** — but it is only
+moot for as long as the email provider's password grant is never used. Probing
+`signInWithPassword` returned "Invalid login credentials" rather than "logins
+are disabled", so the password grant is live even though nothing in the
+application uses it.
+
+---
+
+## F19 — The built-in e-mail service rate limit is a go-live blocker
+
+**Severity: high. Status: OPEN — needs an SMTP provider.**
+
+The immediate cause of "the login has issue" in this session: Supabase's
+**built-in** e-mail service allows only a handful of messages per hour across
+the whole project. Several sign-in attempts plus a few probes exhausted it, and
+further requests returned `email rate limit exceeded`.
+
+The failure is close to invisible from the application's side. §19 and TM12
+require the sign-in response to be **byte-identical** whether or not the address
+is known, so `requestMagicLink` deliberately swallows the outcome and always
+reports "if that address has access, a link is on its way". When the quota is
+gone, the user sees exactly that message and no e-mail ever arrives.
+
+That is correct behaviour for enumeration resistance and terrible behaviour for
+diagnosis, and the two cannot both be satisfied in the response body.
+
+**Consequence at go-live.** §2's test of success is a partner posting rates
+daily and an RM answering without asking backbone. Both begin with a sign-in
+e-mail. On the built-in service, a handful of people signing in within the same
+hour silently locks out everyone after them.
+
+**Fix:** configure a real SMTP provider (Authentication → Emails → SMTP
+Settings) before any partner is onboarded. This is infrastructure the spec does
+not mention and that no test in this repository can catch.
+
+**Also worth doing:** send delivery failures to the error tracker server-side,
+so the operator can see what the user must not be told. That is the same
+shape as F10 — a signal that must not appear in the response body still needs
+somewhere to go.
