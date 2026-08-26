@@ -32,12 +32,16 @@ out."* Three defects were found doing exactly that — see
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in the two secrets
+cp .env.example .env.local   # then fill it in
+npm run dev                  # http://localhost:3000
 npm test
 ```
 
-`.env.local` needs `SUPABASE_SERVICE_ROLE_KEY` and `DATABASE_URL`, both from the
-Supabase dashboard. Neither is committed; `.gitignore` covers `.env*`.
+`.env.local` needs the two Supabase public values plus
+`SUPABASE_SERVICE_ROLE_KEY` and `DATABASE_URL`. Nothing is committed;
+`.gitignore` covers `.env*`.
+
+Deploying: see [docs/deploying.md](docs/deploying.md).
 
 The service-role key is used only by the test harness to build fixtures and by
 server-side routes. §12.3: it MUST NOT appear in any browser bundle, and

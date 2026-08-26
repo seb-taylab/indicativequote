@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url = process.env.SUPABASE_URL;
-const anonKey = process.env.SUPABASE_ANON_KEY;
+// Accept either name: the app needs the NEXT_PUBLIC_ prefix to reach the
+// browser bundle, and there is no reason to make anyone set both.
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function required(name: string, value: string | undefined): string {
@@ -23,14 +25,14 @@ function required(name: string, value: string | undefined): string {
  * assertion in tests/access uses a session client from signInAs().
  */
 export function adminClient(): SupabaseClient {
-  return createClient(required('SUPABASE_URL', url), required('SUPABASE_SERVICE_ROLE_KEY', serviceKey), {
+  return createClient(required('NEXT_PUBLIC_SUPABASE_URL', url), required('SUPABASE_SERVICE_ROLE_KEY', serviceKey), {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
 /** An unauthenticated client, for T21. */
 export function anonClient(): SupabaseClient {
-  return createClient(required('SUPABASE_URL', url), required('SUPABASE_ANON_KEY', anonKey), {
+  return createClient(required('NEXT_PUBLIC_SUPABASE_URL', url), required('NEXT_PUBLIC_SUPABASE_ANON_KEY', anonKey), {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -54,8 +56,8 @@ export async function signInAs(email: string): Promise<SupabaseClient> {
   if (!tokenHash) throw new Error(`no hashed_token returned for ${email}`);
 
   const session = createClient(
-    required('SUPABASE_URL', url),
-    required('SUPABASE_ANON_KEY', anonKey),
+    required('NEXT_PUBLIC_SUPABASE_URL', url),
+    required('NEXT_PUBLIC_SUPABASE_ANON_KEY', anonKey),
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
