@@ -20,6 +20,8 @@ import { invertQuote, isCrossed } from './rates';
 
 export type DiagnosticCode =
   | 'crossed'
+  | 'negative_rate'
+  | 'zero_rate'
   | 'too_many_numbers'
   | 'too_few_numbers'
   | 'unknown_currency'
@@ -200,6 +202,26 @@ export function parseRateBlock(text: string, registry: Registry): ParseResult {
       }
     }
 
+    // §6.3's philosophy: report, never guess.
+    //
+    // NUMBER matches digits only, so a leading minus is not captured — and
+    // "USD/NGN -1392 | 1394" would parse as a BID OF 1392, silently turning a
+    // negative into a positive and changing what the partner said. The
+    // database's positive_rates check would never see it, because by then the
+    // sign is gone.
+    //
+    // A hyphen is also a legitimate SEPARATOR ("usd/ghs 11.77-11.81"), so the
+    // two are distinguished by what precedes it: a hyphen following a digit
+    // separates two rates; one that does not, and is followed by a digit, is a
+    // sign.
+    if (/(^|[^\d])-\s*\d/.test(rest)) {
+      rejected.push({
+        lineNumber, raw, code: 'negative_rate',
+        message: 'A rate cannot be negative. Remove the minus sign or correct the value.',
+      });
+      return;
+    }
+
     NUMBER_RE.lastIndex = 0;
     const restNumbers = (rest.match(NUMBER_RE) ?? []).map(stripThousands);
 
@@ -264,6 +286,21 @@ export function parseRateBlock(text: string, registry: Registry): ParseResult {
           `stored as ${inverse.baseCcy}/${inverse.quoteCcy} ${bid ?? '-'} | ${ask ?? '-'}. ` +
           `Size is not carried across and must be restated.`,
       });
+    }
+
+    // The database enforces positive_rates (bid > 0, ask > 0). Catching a zero
+    // here means the partner is told what is wrong in their own words, rather
+    // than the grid offering a row that the RPC then refuses with a constraint
+    // name. §16.1: a failed submission must not be where the partner discovers
+    // the problem.
+    for (const [side, value] of [['bid', bid], ['ask', ask]] as const) {
+      if (value !== null && new Decimal(value).isZero()) {
+        rejected.push({
+          lineNumber, raw, code: 'zero_rate',
+          message: `A ${side} of zero is not a rate. Correct it or leave the side blank.`,
+        });
+        return;
+      }
     }
 
     // §6.3 error 1 -- a crossed rate is an error, never a warning, and is

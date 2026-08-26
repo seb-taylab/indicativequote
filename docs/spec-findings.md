@@ -1017,3 +1017,54 @@ and markup is retired via `retire_markup_version`. Worth recording because the
 constraints were doing exactly the job §11 designed them for, against the test
 code rather than the application, and a fixture that bypassed them with looser
 SQL would have tested a state the application can never produce.
+
+---
+
+## F24 — The parser silently discarded a minus sign
+
+**Severity: high. Status: CLOSED.**
+
+Found by writing §20.3's *"transposed, malformed and hostile input"* tests,
+which had never been done.
+
+`USD/NGN -1392 | 1394` parsed as **a bid of 1392**. The `NUMBER` pattern
+matches digits only, so the sign was never captured — it was simply left behind
+as a stray character and dropped. The partner's value changed meaning between
+what they sent and what the grid offered, and they were told nothing.
+
+The database could not catch it either: `positive_rates` checks `bid > 0`, and
+by the time the value reached the RPC the sign was already gone. Every layer
+below the parser saw a perfectly valid positive rate.
+
+This is exactly the guess §6.5 forbids. §6.3 error 3 sets the standard — three
+or more numbers on a line is *"reported, never guessed"* — and dropping a
+character that inverts a value's meaning is a far larger guess than picking two
+numbers from three.
+
+**Fix.** A hyphen is also a legitimate separator (`usd/ghs 11.77-11.81`, an
+observed variant in §6.5), so the two are distinguished by what precedes it: a
+hyphen following a digit separates two rates; one that does not, and is
+followed by a digit, is a sign, and the line is rejected with
+*"A rate cannot be negative."* The separator case is asserted alongside it, so
+the fix cannot silently break the variant it had to preserve.
+
+**A second, smaller one.** `USD/NGN 0 | 1394` parsed cleanly and was offered as
+submittable, only for `positive_rates` to refuse it at `submit_rates`. §16.1 is
+clear that a failed submission must not be where a partner discovers a problem,
+so a zero on either side is now rejected in the parser, in the partner's own
+words.
+
+**On the tests that found it.** The first version of these assertions was
+written as `if (row) { ... } else { ... }` — passing whichever way the parser
+behaved. All 36 passed on the first run and proved nothing about either case. I
+probed the actual behaviour before tightening them, which is what surfaced both
+defects. **A conditional assertion is not a test**; it is a description of
+whatever the code already does.
+
+Also verified, since the parser handles untrusted external text: no input
+throws (empty, emoji, RTL, zero-width, CRLF, lone separators); every non-empty
+line is accounted for as parsed, rejected or ignored; rejected lines come back
+verbatim; SQL- and script-shaped text is returned as text and never
+interpreted; and the pattern does not backtrack pathologically — a
+10,000-character line, 3,000 repeated near-matches and a 2,000-line block all
+complete in under a second.
