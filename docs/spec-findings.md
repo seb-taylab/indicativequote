@@ -394,3 +394,34 @@ reasons, and option 1 puts that signal somewhere an operator does not look.
 
 `partner_health()` returns `recent_failures` from the table as specified, so
 the shape is right; today it is always empty, and the migration says why.
+
+---
+
+## F11 — A principal could be invited and never sign in
+
+**Severity: high. Status: CLOSED — migration 0021.**
+
+§19 says *"On first click, `auth_user_id` and `first_seen_at` are set."* §11.7
+lists `access.signin` and `access.signin_denied` among the audited actions.
+
+But §13 — *"the complete write surface. If an operation is not there, it cannot
+happen"* — contains no operation that does either, and D2 means `principals`
+accepts no direct `UPDATE` from any application role. The invite RPCs create a
+principal with `auth_user_id` null and status `invited`; nothing in the spec
+can ever fill it in.
+
+So as specified, every invitation is a dead end: the person receives a magic
+link, Supabase Auth accepts it, and the application resolves them to no
+principal at all.
+
+**Fix.** `sign_in_allowed(email)` and `record_sign_in(auth_user_id, email)`,
+neither granted to `authenticated` — they are called from the server-side auth
+route with the service-role key, which is the only context where the caller
+holds a session but is not yet a resolvable principal. `record_sign_in` binds
+the auth user, stamps first/last seen, promotes `invited` to `active`, and
+writes `access.signin` in one transaction.
+
+`sign_in_allowed` also carries TM12: it returns only a boolean and records the
+denial itself, so the route can answer identically whether or not the address
+is known. `requestMagicLink` has a single success return and never branches its
+message.
