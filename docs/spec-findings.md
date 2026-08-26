@@ -896,3 +896,82 @@ and refuses to pass if it has been broken. Verified end to end: a planted
 
 Wired into `npm run build` alongside the service-key check, and available as
 `npm run lint:decimals`.
+---
+
+## F23 — The retention job existed but nothing ever ran it
+
+**Severity: high (privacy). Status: CLOSED.**
+
+Migration 0020 created `app.purge_raw_input()` and **nothing called it**. §21.2
+lists *"raw_input older than 90 days is nulled and stamped"* as an acceptance
+criterion, and it was simply false — the function existed, the retention did
+not happen. A control that is never executed is a belief, not a control, which
+is the same point §18.3 makes about a backup nobody has restored.
+
+This is a **privacy** obligation rather than housekeeping. §18.4: `raw_input`
+is the partner's exact pasted text, *"which may carry greetings, names or
+unrelated content"*. Retaining it indefinitely because a job was never
+scheduled is the kind of gap found by a data-protection review, not by a test
+suite — every test passed throughout.
+
+**Fix.**
+- `pg_cron` installed; `purge-raw-input` scheduled daily at 03:17 (an off-hour
+  minute, so it does not pile onto :00 with everything else).
+- `app.run_raw_input_purge()` wraps the purge and records every run — including
+  a failure — in a new `app.job_runs` table. A job that fails silently and a
+  job that never ran look identical from outside, and §18.2 has to tell them
+  apart.
+- `job_health()` exposes the heartbeat to operators, and `/admin/health` now
+  shows it: on schedule or **overdue**, when it last ran, whether it failed,
+  how many submissions still hold raw text.
+
+§18.2's *"Purge job did not run in 25 hours → alert"* previously had no source
+to read. `app.job_runs` is that source, and `overdue` is that condition
+computed rather than left to be inferred from a timestamp.
+
+**Verified by execution**, not by scheduling and hoping:
+
+| Submission | raw_input | purge stamp |
+|---|---|---|
+| 120 days old | nulled | stamped |
+| 3 days old | untouched | none |
+
+The stamp matters on its own: it distinguishes *"we deleted this"* from
+*"there never was any"*, which is the difference between a retention record and
+a gap.
+
+---
+
+## N4 — The repository lives in a OneDrive-synced folder, and it is causing real damage
+
+**Severity: high (to the work, not the product). Status: OPEN — needs a move.**
+
+Not a defect in the Rate Hub. Recorded because it has now caused four distinct
+failures in this project, each of which cost time and one of which nearly lost
+work:
+
+| Symptom | Cause |
+|---|---|
+| `next dev` dies with `EINVAL: readlink .next/diagnostics/framework.json` | sync touching build output |
+| `next build` dies with `EBUSY: open .next/diagnostics/build-diagnostics.json` | same, mid-write |
+| **Local git history reduced to a single orphan commit** | `.git` clobbered by sync |
+| `docs/spec-findings-CTX-164.md` appearing as a duplicate | sync conflict copy |
+
+The git one is the serious one. `HEAD` became a lone commit with no ancestors
+while the remote held 20 — so a `git push --force` at that moment, which is the
+reflex when a push is rejected, would have destroyed the entire project history.
+It was recoverable only because the remote was ahead and the push was *rejected*.
+
+The conflict copy is the subtle one: the F23 append landed in
+`spec-findings-CTX-164.md` while `spec-findings.md` silently reverted to its
+previous state. Both files existed, both looked plausible, and the canonical one
+was the wrong one. Promoted the complete copy and added a `.gitignore` rule so a
+future conflict file cannot be committed.
+
+**Recommendation: move the working copy out of the synced folder** — e.g.
+`C:\dev\indicativequote`. Git is already the sync mechanism; OneDrive on top of
+it provides nothing and actively corrupts `.git` and build output.
+
+**Until then:** never `git push --force` from this checkout without first
+confirming `git rev-list --count HEAD` looks sane against the remote, and treat
+a rejected push as evidence of local corruption rather than of a stale branch.

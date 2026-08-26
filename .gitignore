@@ -17,3 +17,7 @@ coverage/
 # Build artefacts
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# OneDrive sync-conflict copies
+*-CTX-*.md
+*conflicted copy*
