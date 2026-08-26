@@ -357,7 +357,10 @@ scale of `rates.partner_bid`.
 
 ## F10 — §9's "recent failures" cannot come from `rate_submissions`
 
-**Severity: medium. Status: OPEN — needs a telemetry decision.**
+**Severity: medium. Status: CLOSED — option 2 implemented in 0025.**
+A separate `submission_failures` table, written by a distinct transaction after
+the failed submission has rolled back. §6.4's atomicity is untouched and
+asserted by test. See the resolution note at the end of this document.
 
 §9 requires the health page to report *"Recent failures — submissions in the
 last 24 hours with `error_count > 0`, with the reasons"*, and §18.2 alerts when
@@ -1068,3 +1071,47 @@ verbatim; SQL- and script-shaped text is returned as text and never
 interpreted; and the pattern does not backtrack pathologically — a
 10,000-character line, 3,000 repeated near-matches and a 2,000-line block all
 complete in under a second.
+
+---
+
+## F10 resolved — how "recent failures" was made possible
+
+**Implemented in migration 0025. Closes the OPEN item above.**
+
+§9 wants failed submissions on the health page; §18.2 alerts on *"more than 2
+for one partner in an hour"*; and §2 explains the stake — *"a partner hitting
+errors silently stops using the product"* is named as the risk that decides the
+outcome. But §6.4 makes a submission atomic, so a batch failing validation
+raises and is discarded whole, envelope included. `error_count` could only ever
+be `0`.
+
+The two requirements cannot both be met inside one transaction, and the wrong
+resolution would have been to write the envelope outside §6.4's guarantee —
+atomicity is what makes *"either every confirmed row is stored or none is"*
+true, and it is worth more than the telemetry.
+
+**What was built.** `public.submission_failures`, written by
+`record_submission_failure()` — a **second, separate call** the route makes
+after `submit_rates` has already raised and rolled back. A distinct
+transaction, so it survives. §6.4 is untouched, and a test asserts that a
+failed batch still writes no rate and no envelope.
+
+**Deliberately not stored: `raw_input` and rate values.** §18.2 forbids them in
+logs, and duplicating a partner's pasted text here would put the same personal
+data outside §18.4's 90-day purge, in a table nobody would think to sweep. The
+reason and the row count are what §9 asks for and are enough to act on. A test
+asserts those columns do not exist.
+
+**Best-effort by design.** If the log write fails, the partner still sees their
+error. Telemetry must never mask the thing it was recording.
+
+Visibility follows `rate_submissions`' shape (§12.6): a partner sees its own,
+operators and admins see all, `rm_viewer` sees none — an RM prices tickets and
+does not need to know which partners are struggling. No role can write
+directly; the RPC is the only path (D2). All asserted.
+
+**The guard tests earned their place here.** Adding the table broke two of them
+immediately — the RLS invariant that every business table is accounted for, and
+the migration-drift guard, which caught 0025 before it had been recorded in the
+ledger. Neither failure was a bug; both were the guards doing exactly what F20
+and F21 added them for.

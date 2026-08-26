@@ -2,6 +2,7 @@ import { requireStaff } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
 import { RetentionPanel, type JobHealth } from './RetentionPanel';
+import { FailuresPanel, type PartnerFailures } from './FailuresPanel';
 import { age, sgt } from '@/components/fmt';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +74,7 @@ export default async function HealthPage() {
   const result = data as unknown as {
     counts: Record<string, number>;
     partner_pairs: HealthRow[];
-    recent_failures: Array<{ submission_id: string; submitted_at: string; error_count: number }>;
+    recent_failures: PartnerFailures[];
   };
 
   // Worst first: an operator opens this page to find what is broken.
@@ -133,26 +134,7 @@ export default async function HealthPage() {
         </table>
       </div>
 
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold">Recent submission failures</h2>
-        {result.recent_failures.length === 0 ? (
-          <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-            None recorded in the last 24 hours.{' '}
-            <span title="See docs/spec-findings.md F10">
-              Note: a submission that fails validation is discarded whole and leaves no row,
-              so this panel cannot yet show partners bouncing off errors.
-            </span>
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {result.recent_failures.map((f) => (
-              <li key={f.submission_id} className="num">
-                {sgt(f.submitted_at)} — {f.error_count} error{f.error_count === 1 ? '' : 's'}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <FailuresPanel failures={result.recent_failures} />
       <RetentionPanel job={(jobs.data as unknown as JobHealth) ?? null} />
     </AppShell>
   );

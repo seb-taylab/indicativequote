@@ -44,7 +44,31 @@ export async function submitRates(
     p_idem: idempotencyKey,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // §9 / §18.2, and F10's resolution.
+    //
+    // submit_rates has already RAISED and rolled back — §6.4 makes the batch
+    // atomic, so there is no envelope and no error_count to read. Without this
+    // second, separate call the attempt leaves no trace at all, and a partner
+    // bouncing off validation is invisible to backbone. §2 names that as the
+    // risk that decides the outcome: "a partner hitting errors silently stops
+    // using the product".
+    //
+    // It is a distinct transaction, which is exactly why it survives the
+    // rollback. Deliberately best-effort: if the log write fails, the partner
+    // still gets their error. A telemetry failure must never mask the thing it
+    // was recording.
+    try {
+      await sb.rpc('record_submission_failure', {
+        p_reason: error.message,
+        p_sqlstate: error.code ?? null,
+        p_row_count: rows.length,
+      });
+    } catch {
+      // Swallowed on purpose — see above.
+    }
+    return { ok: false, error: error.message };
+  }
 
   const result = data as {
     submission_id: string;

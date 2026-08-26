@@ -23,6 +23,11 @@ const BUSINESS_TABLES = [
   'rates',
   'markup_versions',
   'audit_events',
+  // Added in 0025 to make §9's "recent failures" possible -- a failed
+  // submission is discarded whole by §6.4 and leaves no envelope, so the
+  // attempt is recorded separately. This list going stale is the point of the
+  // test below: it caught this table the moment it was created.
+  'submission_failures',
 ];
 
 afterAll(closeDb);
