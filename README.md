@@ -15,9 +15,9 @@ demonstrable, and nothing proceeds while the previous step's tests are red.
 | # | Step | State |
 |---|---|---|
 | 1 | Schema and access control | **built** — T24–T26 green; T1–T23 written, awaiting credentials to run |
-| 2 | Registry and partner administration | not started |
-| 3 | Identity and invitations | not started |
-| 4 | Submission — `submit_rates`, parser, grid, bands, supersession | not started |
+| 2 | Registry and partner administration | **built** |
+| 3 | Identity and invitations | **built** — T16–T19 verified |
+| 4 | Submission — `submit_rates`, parser, grid, bands, supersession | **RPC + parser built** — golden 1 and 3 green; grid UI outstanding |
 | 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | not started |
 | 6 | Correction, withdrawal, history | not started |
 | 7 | Health and audit pages | not started |
