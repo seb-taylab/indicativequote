@@ -153,7 +153,7 @@ describe('Golden test 4b -- two concurrent submissions on one partner-pair', () 
     // rates_one_unbanded permits at most one current unconfirmed row per
     // partner-pair. If the transient double-current state had escaped, this
     // would already have failed at commit -- but assert the end state too.
-    const [{ n }] = await q<{ n: number }>(
+    const countRows = await q<{ n: number }>(
       `select count(*)::int as n
          from public.rates
         where partner_pair_id = $1
@@ -161,7 +161,7 @@ describe('Golden test 4b -- two concurrent submissions on one partner-pair', () 
           and size_status = 'unconfirmed'`,
       [world.partnerPairAId],
     );
-    expect(n).toBe(1);
+    expect(countRows[0]!.n).toBe(1);
   });
 
   it('holds under six-way contention -- the strongest available evidence', async () => {
@@ -192,12 +192,12 @@ describe('Golden test 4b -- two concurrent submissions on one partner-pair', () 
     expect(current, 'six writers must leave exactly one current row').toHaveLength(1);
 
     // All six are stored -- none was lost, five were superseded.
-    const [{ n }] = await q<{ n: number }>(
+    const countRows = await q<{ n: number }>(
       `select count(*)::int as n from public.rates
         where partner_id = $1 and partner_bid between 1800 and 1805`,
       [world.partnerAId],
     );
-    expect(n, 'every concurrent submission must be retained, append-only').toBe(6);
+    expect(countRows[0]!.n, 'every concurrent submission must be retained, append-only').toBe(6);
   });
 
   it('does not deadlock when two submissions touch several pairs', async () => {

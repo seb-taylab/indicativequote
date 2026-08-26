@@ -164,13 +164,13 @@ describe('T18 / T19 -- the lockout guards (TM5)', () => {
     // admin, the count guard is unreachable for a non-self target -- see
     // docs/spec-findings.md N2. What T18 actually asserts is the invariant:
     // the system can never reach zero active admins through the RPC surface.
-    const [{ n }] = await q<{ n: number }>(
+    const countRows = await q<{ n: number }>(
       `select count(*)::int as n
          from public.staff_profiles sp
          join public.principals p on p.id = sp.principal_id
         where sp.role = 'backbone_admin' and p.status = 'active'`,
     );
-    expect(n).toBeGreaterThanOrEqual(1);
+    expect(countRows[0]!.n).toBeGreaterThanOrEqual(1);
   });
 
   it('permits revoking an INVITED admin who never signed in', async () => {

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/assert-no-service-key.mjs",
+    "build": "next build && node scripts/assert-no-service-key.mjs && node scripts/assert-no-float-arithmetic.mjs",
     "start": "next start",
     "lint": "next lint",
     "db:push": "node scripts/apply-migrations.mjs",
@@ -18,7 +18,8 @@
     "test:schema": "vitest run tests/schema",
     "test:access": "vitest run tests/access",
     "typecheck": "tsc --noEmit",
-    "a11y": "node scripts/a11y-scan.mjs && node scripts/contrast-check.mjs"
+    "a11y": "node scripts/a11y-scan.mjs && node scripts/contrast-check.mjs",
+    "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

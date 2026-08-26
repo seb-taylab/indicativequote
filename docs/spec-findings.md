@@ -850,3 +850,49 @@ dependency order, rather than discovering them one failure at a time.
 pair, a currency, a markup version — must own its own row, not borrow the
 seed's. Constraints that permit exactly one active thing per key make borrowing
 destructive rather than merely untidy.
+
+---
+
+## F22 — §12.7's fourth guarantee was never built
+
+**Severity: medium. Status: CLOSED.**
+
+D13's contract has four parts and only three existed. §12.7 rule 4:
+
+> "A lint rule fails the build on `Number(`, `parseFloat(` or `+` applied to
+> any value from a rate payload."
+
+§21.2 lists it as an acceptance criterion — *"No rate value reaches JavaScript
+arithmetic as a primitive — lint rule active and passing"* — and the build ran
+only `assert-no-service-key`. The other three parts were sound, which is
+exactly what makes the gap dangerous: NUMERIC in the database, text on the
+wire, decimal.js in the application, and one `Number(row.partner_bid)`
+anywhere undoes all of it. Silently, with no float in the schema, and no
+visible difference in the rendered figure. F15 was that failure arriving by a
+different route.
+
+**The hard part was not finding `Number(` — it was not crying wolf.**
+
+The first version reported six violations, every one of them English:
+`Bid/ask convention` in a JSX heading parses as division, and
+`* §16.3 /admin/markup` is a block-comment continuation line. A rule that
+reports six false positives on its first run is suppressed within a week, and
+then §12.7's fourth guarantee is gone while still appearing to be enforced.
+
+§12.7 also governs **decimals, not integers**.
+`Number(fd.get('soft_ttl_minutes'))` is correct code — TTL minutes are
+`integer` in the schema. Flagging it would have taught everyone to ignore the
+rule.
+
+So the rule is name-directed: it flags coercion and arithmetic only where an
+operand is decimal-bearing, keeps an explicit `INTEGER_FIELDS` allowlist so
+that adding a decimal to it is a visible act, and takes a reasoned
+`// decimal-safe: <reason>` opt-out rather than a blanket suppression.
+
+**It carries a self-test.** A rule that cannot fail is not a rule, so it
+asserts it still catches four known-bad shapes before trusting a clean report,
+and refuses to pass if it has been broken. Verified end to end: a planted
+`Number(row.partner_bid) * 2` exits 1 and fails the build; removing it exits 0.
+
+Wired into `npm run build` alongside the service-key check, and available as
+`npm run lint:decimals`.
