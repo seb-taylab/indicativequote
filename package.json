@@ -1,0 +1,32 @@
+{
+  "name": "metacomp-rate-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MetaComp FX Rate Hub - internal partner rate board with an indicative quote. Built to rate-hub-spec-v2-1.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:push": "node scripts/apply-migrations.mjs",
+    "db:reset": "node scripts/apply-migrations.mjs --reset",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:schema": "vitest run tests/schema",
+    "test:access": "vitest run tests/access",
+    "test:golden": "vitest run tests/golden",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
+    "decimal.js": "^10.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
