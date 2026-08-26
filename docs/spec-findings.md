@@ -975,3 +975,45 @@ it provides nothing and actively corrupts `.git` and build output.
 **Until then:** never `git push --force` from this checkout without first
 confirming `git rev-list --count HEAD` looks sane against the remote, and treat
 a rejected push as evidence of local corruption rather than of a stale branch.
+
+---
+
+## N5 — The eligibility gates now have tests, and the schema caught the fixtures
+
+**Severity: none. Status: NOTED.**
+
+§14's nine gates decide which rates an RM may price against, and §20.3 rates
+them Critical/High, but they had only ever been exercised incidentally — a
+couple of gates observed in passing while testing something else. 17 tests now
+cover each gate individually, plus the ordering and the `record_quote_copy`
+re-check.
+
+Two properties are asserted separately for every gate, because they are
+separate claims:
+
+- **E1–E5 are not rendered at all.** An inactive partner, an unconfirmed
+  convention, a deactivated pair, a withdrawn row or a superseded row must not
+  appear *even below the divider*.
+- **E6–E9 are rendered, below the divider, with their reason** — §7: *"an RM
+  needs to know a rate exists but cannot be used, and why"*, and *"withheld
+  rows are counted and named, never silently dropped"*.
+
+The ordering is tested directly, because it is what a re-implementation gets
+wrong: a row that is both inactive and expired reports **E1** and vanishes,
+rather than appearing as "expired"; unconfirmed-convention beats no-markup;
+expired beats out-of-band.
+
+**The schema caught the test fixtures, twice.** Seven tests failed initially,
+every one because the fixture SQL violated a constraint rather than because the
+gate was wrong:
+
+- `validity_order` (`valid_from <= expiry_warning_at <= valid_until`) rejected
+  an "expire this rate" update that moved only `valid_until` into the past.
+- `retired_shape` rejected a markup retirement that set `retired_at` without
+  `retired_by`.
+
+Both fixtures now go through the real path — all three stamps move together,
+and markup is retired via `retire_markup_version`. Worth recording because the
+constraints were doing exactly the job §11 designed them for, against the test
+code rather than the application, and a fixture that bypassed them with looser
+SQL would have tested a state the application can never produce.
