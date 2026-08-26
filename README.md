@@ -21,12 +21,26 @@ demonstrable, and nothing proceeds while the previous step's tests are red.
 | 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | **done** — verified in a browser |
 | 6 | Correction, withdrawal, history | **done** |
 | 7 | Health and audit pages | **done** — per partner-pair |
-| 8 | Degraded states, accessibility, seed data, restore rehearsal | seed + degraded states done; **axe scan and restore rehearsal outstanding** |
+| 8 | Degraded states, accessibility, seed data, restore rehearsal | seed, degraded states and the a11y pass done; **restore rehearsal outstanding** |
 
 Step 1 ships *"with T1 to T26 green and no application at all. If the foundation
 is wrong, everything above it is wrong, and this is the cheapest point to find
 out."* Three defects were found doing exactly that — see
 [docs/spec-findings.md](docs/spec-findings.md).
+
+## Test suite
+
+104 tests across 5 files. `npm test` runs all of them; `npm run a11y` is separate.
+
+| File | Covers |
+|---|---|
+| `tests/unit/domain.test.ts` | Golden 1 and 3, parser, markup, ranking, precision |
+| `tests/schema/invariants.test.ts` | T24–T26, RLS/policy/view invariants, migration-drift guard |
+| `tests/access/matrix.test.ts` | T1–T9, T11–T15, T21–T23, Golden 2 |
+| `tests/access/rpc-authorisation.test.ts` | T10, T16–T20 — RPC authorisation through real sessions |
+| `tests/golden/supersession.test.ts` | Golden 4 — supersession, renewal, six-way concurrency, D5 |
+
+Golden tests 1 to 4 all present. T1–T26 all covered.
 
 ## Running it
 
