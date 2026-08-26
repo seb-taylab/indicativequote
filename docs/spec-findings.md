@@ -58,7 +58,9 @@ and reports a false failure. PUBLIC must be identified as grantee OID `0` via
 
 ## F2 — The band exclusion constraint refuses §10.4's own worked example
 
-**Severity: high. Status: OPEN — needs a decision.**
+**Severity: high. Status: DECIDED and IMPLEMENTED — see D-F2 below.**
+Option 1 was chosen. `submit_rates` refuses touching bands with a message
+naming the disputed ticket and how to fix it; verified in migration 0015.
 
 §10.4 motivates D16 with: *"a partner quoting 1392 up to 100k and 1393.5 above
 it has two current rows, not one."*
@@ -350,3 +352,45 @@ wire as text for a person to read, and 40 digits of spurious precision is an
 invitation for someone downstream to "tidy it up" with a float, which is the
 one thing §12.7 exists to prevent. `app.client_rate` now rounds to 14, the
 scale of `rates.partner_bid`.
+
+---
+
+## F10 — §9's "recent failures" cannot come from `rate_submissions`
+
+**Severity: medium. Status: OPEN — needs a telemetry decision.**
+
+§9 requires the health page to report *"Recent failures — submissions in the
+last 24 hours with `error_count > 0`, with the reasons"*, and §18.2 alerts when
+`submit_rates` fails *"more than 2 for one partner in an hour"*, because *"a
+partner hitting errors silently stops using the product"* — which is the
+adoption risk §2 says decides the outcome.
+
+Neither can be satisfied from `rate_submissions`. §6.4 makes a submission
+atomic: a batch that fails validation **raises, and the transaction is
+discarded**, so no envelope row survives. A failed submission leaves no trace
+in the database at all. Verified: a batch containing a crossed rate wrote zero
+rows, envelope included.
+
+`error_count` can therefore only ever be `0` for a successful submission, and
+the failure signal the operator most needs — a partner repeatedly bouncing off
+validation — is exactly the one the table cannot hold.
+
+The two are in direct tension: making failures visible in the database would
+mean writing the envelope outside the transaction, which breaks atomicity.
+
+**Options.**
+
+1. **Application telemetry.** The route that calls `submit_rates` records
+   failures to the error tracker and a counter, and the health page reads that.
+   Keeps §6.4 intact. §18.2's exclusion still applies: no rate values and no
+   `raw_input` in logs.
+2. **A separate, autonomous failure log.** A small table written by a
+   `SECURITY DEFINER` function in its own transaction, so a rollback of the
+   submission does not roll back the record of the attempt. More faithful to
+   §9 and queryable, at the cost of a table the spec does not define.
+
+**Recommendation: option 2**, because §9 asks the health page to show the
+reasons, and option 1 puts that signal somewhere an operator does not look.
+
+`partner_health()` returns `recent_failures` from the table as specified, so
+the shape is right; today it is always empty, and the migration says why.
