@@ -18,10 +18,10 @@ demonstrable, and nothing proceeds while the previous step's tests are red.
 | 2 | Registry and partner administration | **built** |
 | 3 | Identity and invitations | **built** — T16–T19 verified |
 | 4 | Submission — `submit_rates`, parser, grid, bands, supersession | **RPC + parser built** — golden 1 and 3 green; grid UI outstanding |
-| 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | not started |
-| 6 | Correction, withdrawal, history | not started |
-| 7 | Health and audit pages | not started |
-| 8 | Degraded states, accessibility, seed data, restore rehearsal | not started |
+| 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | **RPCs built and verified**; board UI outstanding |
+| 6 | Correction, withdrawal, history | **RPCs built and verified**; history UI outstanding |
+| 7 | Health and audit pages | **`partner_health` built**, per partner-pair; pages outstanding |
+| 8 | Degraded states, accessibility, seed data, restore rehearsal | **seed data built**; rest outstanding |
 
 Step 1 ships *"with T1 to T26 green and no application at all. If the foundation
 is wrong, everything above it is wrong, and this is the cheapest point to find
