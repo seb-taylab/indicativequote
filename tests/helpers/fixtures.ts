@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { adminClient, ensureAuthUser } from './clients.js';
-import { q } from './db.js';
+import { adminClient, ensureAuthUser } from './clients';
+import { q } from './db';
 
 /**
  * A two-partner, five-principal world, built with the service role because the

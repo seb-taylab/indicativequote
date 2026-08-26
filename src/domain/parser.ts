@@ -16,7 +16,7 @@
  * Number() or parseFloat. Decimal is used only where a comparison is needed.
  */
 import Decimal from 'decimal.js';
-import { invertQuote, isCrossed } from './rates.js';
+import { invertQuote, isCrossed } from './rates';
 
 export type DiagnosticCode =
   | 'crossed'

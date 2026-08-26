@@ -3,29 +3,39 @@
   "version": "0.1.0",
   "private": true,
   "description": "MetaComp FX Rate Hub - internal partner rate board with an indicative quote. Built to rate-hub-spec-v2-1.",
-  "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
+    "dev": "next dev",
+    "build": "next build && node scripts/assert-no-service-key.mjs",
+    "start": "next start",
+    "lint": "next lint",
     "db:push": "node scripts/apply-migrations.mjs",
-    "db:reset": "node scripts/apply-migrations.mjs --reset",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
     "test:schema": "vitest run tests/schema",
     "test:access": "vitest run tests/access",
-    "test:golden": "vitest run tests/golden",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
-    "decimal.js": "^10.4.3"
+    "decimal.js": "^10.4.3",
+    "next": "^15.1.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
     "dotenv": "^16.4.7",
     "pg": "^8.13.1",
+    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

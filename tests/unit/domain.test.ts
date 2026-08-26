@@ -17,8 +17,8 @@ import {
   isCrossed,
   sideForDirection,
   spread,
-} from '../../src/domain/rates.js';
-import { buildRegistry, parseRateBlock, spreadWarning, moveWarning } from '../../src/domain/parser.js';
+} from '../../src/domain/rates';
+import { buildRegistry, parseRateBlock, spreadWarning, moveWarning } from '../../src/domain/parser';
 
 const REGISTRY = buildRegistry(
   ['USD', 'NGN', 'GHS', 'KES', 'ZAR'],

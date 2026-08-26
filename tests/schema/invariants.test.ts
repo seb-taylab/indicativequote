@@ -9,7 +9,7 @@
  * for every future migration -- that is the entire point of them.
  */
 import { afterAll, describe, expect, it } from 'vitest';
-import { closeDb, q } from '../helpers/db.js';
+import { closeDb, q } from '../helpers/db';
 
 const BUSINESS_TABLES = [
   'currencies',
@@ -110,10 +110,9 @@ describe('T26 -- no function is executable by PUBLIC', () => {
   });
 
   it('exposes no existing function to anon', async () => {
-    const [{ oid }] = await q<{ oid: number }>(
-      `select oid from pg_roles where rolname = 'anon'`,
-    );
-    const rows = await q<{ fn: string }>(publicExecutable, [oid]);
+    const roles = await q<{ oid: number }>(`select oid from pg_roles where rolname = 'anon'`);
+    expect(roles, 'the anon role should exist on a Supabase project').toHaveLength(1);
+    const rows = await q<{ fn: string }>(publicExecutable, [roles[0]!.oid]);
     expect(rows.map((r) => r.fn)).toEqual([]);
   });
 
@@ -153,7 +152,7 @@ describe('T26 -- no function is executable by PUBLIC', () => {
       `select evtname, evtenabled::text as enabled from pg_event_trigger where evtname = 'no_public_execute'`,
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0].enabled).not.toBe('D'); // not disabled
+    expect(rows[0]!.enabled).not.toBe('D'); // not disabled
   });
 });
 

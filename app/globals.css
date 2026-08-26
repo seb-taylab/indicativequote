@@ -1,0 +1,121 @@
+@import 'tailwindcss';
+
+/*
+ * §16.2 accessibility and presentation.
+ *
+ * Three rules that are not decoration:
+ *  - Rates and amounts use tabular numerals and a monospace stack (§7), so
+ *    digits line up column-to-column and a transposed figure is visible.
+ *  - Status is NEVER encoded by colour alone. Every status carries text.
+ *  - Contrast is checked in both themes; the palette below is AA against its
+ *    own background at body size.
+ */
+
+:root {
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --border: #d4dae2;
+  --text: #10151c;
+  --muted: #4b5563;
+
+  --live: #14532d;
+  --live-bg: #dcfce7;
+  --expiring: #7c2d12;
+  --expiring-bg: #ffedd5;
+  --expired: #7f1d1d;
+  --expired-bg: #fee2e2;
+  --neutral: #1e3a5f;
+  --neutral-bg: #dbeafe;
+
+  --accent: #1d4ed8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0f14;
+    --surface: #131a23;
+    --border: #2b3644;
+    --text: #eef2f7;
+    --muted: #9aa7b6;
+
+    --live: #86efac;
+    --live-bg: #14321f;
+    --expiring: #fdba74;
+    --expiring-bg: #3a2410;
+    --expired: #fca5a5;
+    --expired-bg: #3f1717;
+    --neutral: #bfdbfe;
+    --neutral-bg: #16263d;
+
+    --accent: #93b4fd;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Rates, amounts, sizes. Tabular so columns align digit-for-digit. */
+.num {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* §16.2: every control has a visible focus state. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* §16.2: tables scroll inside their own container; the body never scrolls
+   sideways. */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-live     { color: var(--live);     background: var(--live-bg); }
+.status-expiring { color: var(--expiring); background: var(--expiring-bg); }
+.status-expired  { color: var(--expired);  background: var(--expired-bg); }
+.status-neutral  { color: var(--neutral);  background: var(--neutral-bg); }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Skip link, revealed on focus. */
+.skip-link {
+  position: absolute; left: -9999px; top: 0; z-index: 50;
+  padding: 0.6rem 1rem; background: var(--bg); border: 2px solid var(--accent);
+}
+.skip-link:focus { left: 0.5rem; top: 0.5rem; }

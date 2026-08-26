@@ -14,9 +14,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { anonClient, signInAs } from '../helpers/clients.js';
-import { F, buildWorld, teardown, type World } from '../helpers/fixtures.js';
-import { closeDb } from '../helpers/db.js';
+import { anonClient, signInAs } from '../helpers/clients';
+import { F, buildWorld, teardown, type World } from '../helpers/fixtures';
+import { closeDb } from '../helpers/db';
 
 let world: World;
 const s: Record<string, SupabaseClient> = {};
@@ -156,7 +156,7 @@ describe('T11 -- the composite foreign key refuses a cross-tenant rate', () => {
   it('refuses a rate whose partner_pair_id belongs to another partner', async () => {
     // Asserted against the database directly, because the point of the test is
     // that even a privileged path cannot do it -- §11.5.
-    const { q } = await import('../helpers/db.js');
+    const { q } = await import('../helpers/db');
     await expect(
       q(
         `insert into public.rates
