@@ -1,7 +1,7 @@
 import { requirePartner } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
-import { age, band, sgt } from '@/components/fmt';
+import { age, band, dec, sgt } from '@/components/fmt';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,8 +125,8 @@ export default async function PartnerHome() {
                 {current.map((r) => (
                   <tr key={r.id as string} style={{ borderBottom: `1px solid var(--border)` }}>
                     <td className="num px-2 py-2">{r.base_ccy}/{r.quote_ccy}</td>
-                    <td className="num px-2 py-2 text-right">{(r.partner_bid as string) ?? '—'}</td>
-                    <td className="num px-2 py-2 text-right">{(r.partner_ask as string) ?? '—'}</td>
+                    <td className="num px-2 py-2 text-right">{dec(r.partner_bid as string | null)}</td>
+                    <td className="num px-2 py-2 text-right">{dec(r.partner_ask as string | null)}</td>
                     <td className="num px-2 py-2">
                       {band(r.size_status as string, r.min_size as string | null, r.max_size as string | null)}
                     </td>

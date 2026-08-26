@@ -29,10 +29,29 @@ export async function GET(request: NextRequest) {
     email = data.user?.email ?? null;
     userId = data.user?.id ?? null;
   } else if (tokenHash) {
-    const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
-    if (error) return NextResponse.redirect(new URL('/login?error=link', url.origin));
-    email = data.user?.email ?? null;
-    userId = data.user?.id ?? null;
+    // The `type` Supabase expects depends on whether this is the principal's
+    // FIRST click. An invited principal has no confirmed auth user yet, so the
+    // link doubles as e-mail confirmation and verifies as 'email'; a returning
+    // one verifies as 'magiclink'. §19 makes the first click the common case --
+    // every partner and every member of staff passes through it exactly once --
+    // so getting this wrong makes onboarding fail while returning users work,
+    // which is the hardest version of the bug to notice.
+    //
+    // The token is single-use: a failed attempt does not consume it, but a
+    // successful one does, so 'email' is tried first and 'magiclink' only if
+    // it was rejected.
+    const attempts = ['email', 'magiclink'] as const;
+    let verified = false;
+    for (const type of attempts) {
+      const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (!error && data.user) {
+        email = data.user.email ?? null;
+        userId = data.user.id;
+        verified = true;
+        break;
+      }
+    }
+    if (!verified) return NextResponse.redirect(new URL('/login?error=link', url.origin));
   } else {
     return NextResponse.redirect(new URL('/login', url.origin));
   }

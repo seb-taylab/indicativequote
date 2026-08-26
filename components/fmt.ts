@@ -37,8 +37,45 @@ export function age(iso: string | null): string {
   return `${Math.round(hours / 24)} d ago`;
 }
 
+/**
+ * Trim a decimal STRING for display, without ever touching Number().
+ *
+ * Rates are stored at numeric(28,14) and cross the wire as text (§12.7), so a
+ * live rate arrives as "1501.50000000000000". Fourteen trailing zeros on the
+ * RM's primary screen are not precision, they are noise -- §7 requires the
+ * board to answer the question without scrolling, and a column of 18-character
+ * numbers works against that.
+ *
+ * This is pure string surgery: it removes trailing zeros in the fractional
+ * part and the point if nothing survives it. No parsing, no rounding, no loss.
+ * The full-precision value stays in the payload; only the rendering changes.
+ */
+export function dec(value: string | null, opts?: { group?: boolean; minDp?: number }): string {
+  if (value === null || value === undefined || value === '') return '—';
+
+  const neg = value.startsWith('-');
+  const body = neg ? value.slice(1) : value;
+  const [intPartRaw, fracRaw = ''] = body.split('.');
+  let intPart = intPartRaw ?? '0';
+  let frac = fracRaw.replace(/0+$/, '');
+
+  const minDp = opts?.minDp ?? 0;
+  while (frac.length < minDp) frac += '0';
+
+  if (opts?.group) {
+    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  return `${neg ? '-' : ''}${intPart}${frac ? `.${frac}` : ''}`;
+}
+
+/** A size bound: grouped and trimmed, because these are round human numbers. */
+export function size(value: string | null): string {
+  return dec(value, { group: true });
+}
+
 export function band(sizeStatus: string, min: string | null, max: string | null): string {
   if (sizeStatus === 'unconfirmed') return 'not confirmed';
-  const lo = min ?? '0';
-  return max ? `${lo} – ${max}` : `${lo} and above`;
+  const lo = size(min ?? '0');
+  return max ? `${lo} – ${size(max)}` : `${lo} and above`;
 }

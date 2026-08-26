@@ -319,3 +319,37 @@ describe('§12.7 -- precision survives the boundary', () => {
     expect(new Decimal(v).toFixed(14)).toBe('1392.10000000000002');
   });
 });
+
+describe('Display formatting never loses a digit (§12.7)', () => {
+  it('trims storage-scale zeros without touching the value', async () => {
+    const { dec } = await import('../../components/fmt');
+    expect(dec('1501.50000000000000')).toBe('1501.5');
+    expect(dec('1493.99250000000000')).toBe('1493.9925');
+    expect(dec('2.00000000000000')).toBe('2');
+    expect(dec('1392')).toBe('1392');
+    expect(dec(null)).toBe('—');
+  });
+
+  it('keeps every significant digit, including tiny magnitudes', async () => {
+    const { dec } = await import('../../components/fmt');
+    // An inverse-pair rate. Trimming must not round this to nothing.
+    expect(dec('0.00000071812345')).toBe('0.00000071812345');
+    expect(dec('1392.10000000000002')).toBe('1392.10000000000002');
+  });
+
+  it('groups sizes and amounts for reading', async () => {
+    const { dec, size, band } = await import('../../components/fmt');
+    expect(size('100000.000000')).toBe('100,000');
+    expect(size('100000.000001')).toBe('100,000.000001');
+    expect(dec('69252000.00', { group: true, minDp: 2 })).toBe('69,252,000.00');
+    expect(band('confirmed', '0', '100000.000000')).toBe('0 – 100,000');
+    expect(band('unconfirmed', null, null)).toBe('not confirmed');
+  });
+
+  it('is pure string surgery -- a value JS cannot hold survives', async () => {
+    const { dec } = await import('../../components/fmt');
+    const v = '9007199254740993.50000000000000'; // beyond Number.MAX_SAFE_INTEGER
+    expect(dec(v)).toBe('9007199254740993.5');
+    expect(String(Number(v))).not.toBe('9007199254740993.5');
+  });
+});

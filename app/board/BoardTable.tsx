@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { copyQuote } from './actions';
+import { band, dec, sgt } from '@/components/fmt';
 import type { BoardResult, BoardRow } from './types';
 
 /** §16.2: status is never encoded by colour alone -- each carries its word. */
@@ -9,20 +10,6 @@ function Status({ value }: { value: BoardRow['status'] }) {
   const cls =
     value === 'live' ? 'status-live' : value === 'expiring' ? 'status-expiring' : 'status-expired';
   return <span className={`status ${cls}`}>{value}</span>;
-}
-
-function sgt(iso: string): string {
-  // A-3: UTC storage, SGT display.
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Singapore',
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(iso));
-}
-
-function band(row: BoardRow): string {
-  if (row.size_status === 'unconfirmed') return 'not confirmed';
-  const lo = row.min_size ?? '0';
-  return row.max_size ? `${lo} – ${row.max_size}` : `${lo} and above`;
 }
 
 export function BoardTable({ result }: { result: BoardResult }) {
@@ -118,13 +105,13 @@ export function BoardTable({ result }: { result: BoardResult }) {
                 <tr key={row.rate_id} style={{ borderBottom: `1px solid var(--border)` }}>
                   <td className="num px-2 py-2">{result.rankable ? row.rank : '—'}</td>
                   <td className="px-2 py-2 font-medium">{row.partner_name}</td>
-                  <td className="num px-2 py-2 text-right">{row.partner_bid ?? '—'}</td>
-                  <td className="num px-2 py-2 text-right">{row.partner_ask ?? '—'}</td>
-                  <td className="num px-2 py-2 text-right">{row.spread ?? '—'}</td>
-                  <td className="num px-2 py-2">{band(row)}</td>
-                  <td className="num px-2 py-2 text-right">{row.markup_bps} bps</td>
-                  <td className="num px-2 py-2 text-right font-semibold">{row.client_rate}</td>
-                  <td className="num px-2 py-2 text-right">{row.counter_amount ?? '—'}</td>
+                  <td className="num px-2 py-2 text-right">{dec(row.partner_bid)}</td>
+                  <td className="num px-2 py-2 text-right">{dec(row.partner_ask)}</td>
+                  <td className="num px-2 py-2 text-right">{dec(row.spread)}</td>
+                  <td className="num px-2 py-2">{band(row.size_status, row.min_size, row.max_size)}</td>
+                  <td className="num px-2 py-2 text-right">{dec(row.markup_bps)} bps</td>
+                  <td className="num px-2 py-2 text-right font-semibold">{dec(row.client_rate)}</td>
+                  <td className="num px-2 py-2 text-right">{dec(row.counter_amount, { group: true, minDp: 2 })}</td>
                   <td className="num px-2 py-2">{sgt(row.submitted_at)}</td>
                   <td className="num px-2 py-2">{sgt(row.valid_until)}</td>
                   <td className="px-2 py-2"><Status value={row.status} /></td>
@@ -157,10 +144,10 @@ export function BoardTable({ result }: { result: BoardResult }) {
                     <tr key={row.rate_id} style={{ borderBottom: `1px solid var(--border)`, opacity: 0.75 }}>
                       <td className="px-2 py-2">—</td>
                       <td className="px-2 py-2 font-medium">{row.partner_name}</td>
-                      <td className="num px-2 py-2 text-right">{row.partner_bid ?? '—'}</td>
-                      <td className="num px-2 py-2 text-right">{row.partner_ask ?? '—'}</td>
-                      <td className="num px-2 py-2 text-right">{row.spread ?? '—'}</td>
-                      <td className="num px-2 py-2">{band(row)}</td>
+                      <td className="num px-2 py-2 text-right">{dec(row.partner_bid)}</td>
+                      <td className="num px-2 py-2 text-right">{dec(row.partner_ask)}</td>
+                      <td className="num px-2 py-2 text-right">{dec(row.spread)}</td>
+                      <td className="num px-2 py-2">{band(row.size_status, row.min_size, row.max_size)}</td>
                       <td className="px-2 py-2 text-right">—</td>
                       <td className="px-2 py-2 text-right">—</td>
                       <td className="px-2 py-2 text-right">—</td>

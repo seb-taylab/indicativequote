@@ -425,3 +425,55 @@ writes `access.signin` in one transaction.
 denial itself, so the route can answer identically whether or not the address
 is known. `requestMagicLink` has a single success return and never branches its
 message.
+
+---
+
+## F12 — `script-src 'self'` renders the whole application inert
+
+**Severity: critical. Status: CLOSED — middleware nonce.**
+
+§18.5 requires *"a CSP denying inline script"*. Implemented literally as
+`script-src 'self'`, that also denies **Next.js's own bootstrap and
+flight-data scripts**, which are inline by construction.
+
+The result is the worst shape a bug can take: the application
+**server-renders perfectly and never hydrates**. Observed on the running app —
+the board displayed the right partners, the right bands, correct ranking, the
+correct direction-dependent header and correct markup arithmetic, and
+`Copy quote` silently did nothing. No error, no broken layout, nothing an
+RM would report beyond "the button doesn't work".
+
+The same failure would have made the submission grid inert: `Parse`, `Add row`,
+every field and `Submit` are client-side. A partner would have seen a textarea
+that does nothing.
+
+An RM who believes they copied a quote that was never composed and never
+recorded is exactly the failure §8 exists to prevent — *"the `quote.copy` event
+is the authoritative record of what MetaComp quoted"*, and there would have
+been no event.
+
+**Fix.** The CSP moved from a static `next.config` header to `middleware.ts`,
+which mints a fresh nonce per request, passes it on the request headers so
+Next.js stamps its own scripts, and sets it on the response so the browser
+enforces it. `'strict-dynamic'` lets those trusted scripts load their chunks
+without whitelisting origins. `'unsafe-eval'` is added in **development only**,
+for the React refresh runtime, and is absent from production.
+
+The spec's intent is preserved exactly: no arbitrary inline script runs. What
+changed is that the application's own scripts are now distinguishable from an
+injected one, which `'self'` alone cannot express for inline content.
+
+**Verified deterministically**, because a browser pane could not be relied on:
+
+```
+header nonce           : NjRkYjVhOTMt…
+inline <script> tags   : 11
+  carrying that nonce  : 11
+distinct nonces in html: exactly one, equal to the header's
+```
+
+**This class of defect is invisible to server-side tests.** Every RPC test, and
+every one of T1–T26, passes against a completely inert front end. Worth an
+explicit hydration check in the acceptance run — §21.2's product criteria
+("a partner submits six rates from a pasted block in under sixty seconds")
+cover it only if they are exercised in a real browser.
