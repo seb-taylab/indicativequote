@@ -306,3 +306,47 @@ demoting an **invited** admin — one who has never signed in — was refused wi
 at all. An admin who mistyped an address while inviting a colleague could not
 withdraw the invitation until a second admin was appointed *and had signed in*.
 Fixed in 0013; the guard now requires the target to be active.
+
+---
+
+## F8 — §4.1 and §12.6 disagree on what `rm_viewer` sees of markup
+
+**Severity: low. Status: CLOSED — §12.6 followed, as the normative text.**
+
+Two sections give different answers for the same table.
+
+§4.1's permission matrix: `Markup versions | rm_viewer: applied value only`.
+
+§12.6's RLS matrix: `markup_versions | Partner: none | Staff: select all`, with
+the representative policy `using (app.staff_role() is not null)` — which
+includes `rm_viewer`.
+
+§0 settles precedence: sections 10 to 17 "**are** the specification", so §12.6
+governs and `rm_viewer` can read `markup_versions` in full.
+
+That is also the only reading that works. §7 requires the board's markup control
+to be *"adjustable only within the version's band"*, so the RM's own screen has
+to know `min_bps` and `max_bps`. Under §4.1's stricter reading the control
+could not be built.
+
+No threat is created. TM2 is *"Partner learns MetaComp's markup"* — partners,
+not RMs, and the partner policy is still absent by design (T3). An RM already
+sees the client rate and can infer the markup from it.
+
+`board_rates` returns the active version's band to staff for exactly this
+reason.
+
+---
+
+## F9 — `board_rates` returned 40 decimal places
+
+**Severity: low. Status: CLOSED.**
+
+`partner_bid * (1 - m/10000)` in `numeric` produces full working scale, so a
+client rate came back as `1393.50000000000000000000000000000000000000`.
+
+Not a correctness bug — the value is right — but §12.7 sends these across the
+wire as text for a person to read, and 40 digits of spurious precision is an
+invitation for someone downstream to "tidy it up" with a float, which is the
+one thing §12.7 exists to prevent. `app.client_rate` now rounds to 14, the
+scale of `rates.partner_bid`.
