@@ -1,7 +1,12 @@
 node_modules/
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+# Catch-alls: a stray .env.local.bak or .env.production.backup is a real
+# password in a public repository, and `.env.*.local` does not match either.
+*.env
+*.pem
+*.key
 dist/
 .next/
 coverage/

@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env';
 import pg from 'pg';
 
 // Schema assertions must read pg_catalog and information_schema, which

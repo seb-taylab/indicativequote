@@ -477,3 +477,59 @@ every one of T1–T26, passes against a completely inert front end. Worth an
 explicit hydration check in the acceptance run — §21.2's product criteria
 ("a partner submits six rates from a pasted block in under sixty seconds")
 cover it only if they are exercised in a real browser.
+
+---
+
+## F13 — Seeding `auth.users` by SQL breaks the Auth admin API project-wide
+
+**Severity: high. Status: CLOSED — seed fixed and rows backfilled.**
+
+§18.1 requires seed data covering every state, and a seed that has to create
+principals must create `auth.users` rows. Inserting them with the obvious
+column set — id, email, timestamps, metadata — leaves
+`confirmation_token`, `recovery_token`, `email_change` and
+`email_change_token_new` **NULL**.
+
+GoTrue scans those columns into Go `string` values. A NULL makes the scan fail,
+and because the admin list query reads *every* row, **one bad row breaks
+`auth.admin.listUsers` for the entire project** — including for users the seed
+never touched.
+
+Observed: after seeding five demo users, every `listUsers` call returned
+`Database error finding users`. The five seeded rows had the four columns NULL;
+every user created through the Auth API had them as `''`.
+
+The failure is badly behaved in two ways. It is **remote from its cause** — the
+error surfaces in the test harness creating unrelated users, not in the seed —
+and it is **intermittent by path**: `createUser` succeeds, so anything that
+never falls back to `listUsers` passes. The access suite passed when run alone
+and failed only in a full run.
+
+**Fix.** `supabase/seed/seed.sql` sets all eight token columns to `''`
+explicitly, as the Auth API itself does. Existing rows were backfilled with
+`coalesce(col, '')`.
+
+**Rule.** Any direct write to `auth.users` must set every token column
+explicitly. Preferring `auth.admin.createUser` avoids the problem entirely and
+is the right default wherever a seed can afford the round trips.
+
+---
+
+## F14 — `.gitignore` did not cover a backup of an env file
+
+**Severity: high (in a public repo). Status: CLOSED.**
+
+The original pattern was `.env`, `.env.local`, `.env.*.local`. None of those
+match `.env.local.bak`, which is exactly what a careless edit — or a tool
+making a safety copy before rewriting `DATABASE_URL` — produces. In this
+repository that file holds a live database password, and F5 makes the
+repository public.
+
+Caught by `git check-ignore` before any commit; no secret was ever staged,
+committed or pushed.
+
+**Fix.** `.env.*` with a `!.env.example` negation, plus `*.env`, `*.pem`,
+`*.key`. Verified against `.env.local.bak` and `.env.production.backup`.
+
+**Worth keeping as a habit:** run `git check-ignore -v <file>` on anything
+holding a secret, rather than trusting a pattern to be broad enough.

@@ -52,8 +52,10 @@ export async function teardown(): Promise<void> {
              (select id from public.principals where email like 'ratehub.test.%')`);
   await q(`delete from public.principals where email like 'ratehub.test.%'`);
   await q(`delete from public.partners where slug in ($1,$2)`, [F.partnerA.slug, F.partnerB.slug]);
-  await q(`delete from public.currency_pairs where base_ccy = 'USD' and quote_ccy = 'NGN'`);
-  await q(`delete from public.currencies where code in ('USD','NGN')`);
+  // Currencies and canonical pairs are SHARED reference data, not test
+  // artefacts: the seed uses USD/NGN too, and D8 allows exactly one row per
+  // couple. Deleting them here fails on partner_pairs' foreign key and would
+  // destroy seed data if it succeeded. The fixture reuses them instead.
 
   const admin = adminClient();
   const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -67,11 +69,16 @@ export async function teardown(): Promise<void> {
 export async function buildWorld(): Promise<World> {
   await teardown();
 
+  // Reuse the registry rather than owning it -- see teardown().
   await q(`insert into public.currencies (code, name, kind, minor_units)
-           values ('USD','US Dollar','fiat',2), ('NGN','Nigerian Naira','fiat',2)`);
+           values ('USD','US Dollar','fiat',2), ('NGN','Nigerian Naira','fiat',2)
+           on conflict (code) do nothing`);
 
+  await q(`insert into public.currency_pairs (base_ccy, quote_ccy)
+           values ('USD','NGN')
+           on conflict (base_ccy, quote_ccy) do nothing`);
   const [pair] = await q<{ id: string }>(
-    `insert into public.currency_pairs (base_ccy, quote_ccy) values ('USD','NGN') returning id`,
+    `select id from public.currency_pairs where base_ccy = 'USD' and quote_ccy = 'NGN'`,
   );
 
   // Partner A has its convention confirmed; Partner B does not, so the [A-1]

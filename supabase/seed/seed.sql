@@ -38,15 +38,29 @@ begin
   insert into public.currency_pairs (base_ccy, quote_ccy) values ('USD','KES') returning id into v_pair_kes;
 
   -- --- Principals ----------------------------------------------------
+  -- The token columns are set to '' EXPLICITLY, not left to default.
+  --
+  -- GoTrue scans confirmation_token, recovery_token, email_change and the
+  -- email_change_token_* columns into Go strings. A NULL in any of them makes
+  -- the scan fail, and because the admin listUsers query reads every row, ONE
+  -- bad row breaks the Auth admin API for the WHOLE PROJECT -- "Database error
+  -- finding users" on every call, including for users this seed never touched.
+  --
+  -- Observed: seeding these five rows without the token columns took down
+  -- auth.admin.listUsers project-wide until they were backfilled with ''.
+  -- The Auth API sets them to '' itself; direct SQL has to do the same.
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, created_at, updated_at,
-                          raw_app_meta_data, raw_user_meta_data)
+                          raw_app_meta_data, raw_user_meta_data,
+                          confirmation_token, recovery_token, email_change,
+                          email_change_token_new, email_change_token_current,
+                          phone_change, phone_change_token, reauthentication_token)
   values
-    ('00000000-dead-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.admin@example.com','',now(),now(),now(),'{}','{}'),
-    ('00000000-dead-0000-0000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.operator@example.com','',now(),now(),now(),'{}','{}'),
-    ('00000000-dead-0000-0000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.rm@example.com','',now(),now(),now(),'{}','{}'),
-    ('00000000-dead-0000-0000-000000000004','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.alpha@example.com','',now(),now(),now(),'{}','{}'),
-    ('00000000-dead-0000-0000-000000000005','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.beta@example.com','',now(),now(),now(),'{}','{}')
+    ('00000000-dead-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.admin@example.com','',now(),now(),now(),'{}','{}','','','','','','','',''),
+    ('00000000-dead-0000-0000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.operator@example.com','',now(),now(),now(),'{}','{}','','','','','','','',''),
+    ('00000000-dead-0000-0000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.rm@example.com','',now(),now(),now(),'{}','{}','','','','','','','',''),
+    ('00000000-dead-0000-0000-000000000004','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.alpha@example.com','',now(),now(),now(),'{}','{}','','','','','','','',''),
+    ('00000000-dead-0000-0000-000000000005','00000000-0000-0000-0000-000000000000','authenticated','authenticated','demo.beta@example.com','',now(),now(),now(),'{}','{}','','','','','','','','')
   on conflict (id) do nothing;
 
   insert into public.principals (email, kind, auth_user_id, status) values

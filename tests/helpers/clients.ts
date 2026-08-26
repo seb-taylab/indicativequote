@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Accept either name: the app needs the NEXT_PUBLIC_ prefix to reach the
