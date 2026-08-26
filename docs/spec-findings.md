@@ -275,3 +275,34 @@ Verified by execution, impersonating real roles:
 the application.** The warning is only actionable if a function ever lacks its
 `app.require_staff()` / `app.require_partner()` guard — which is what the
 per-RPC authorisation tests exist to catch.
+
+---
+
+## N2 — What actually enforces T18
+
+**Severity: none. Status: NOTED, with a guard kept deliberately.**
+
+§13.2 requires `revoke_staff` to refuse *"the last active `backbone_admin`"*,
+and T18 tests it. Implementing both that and the self-refusal exposes something
+worth writing down: **the count guard is unreachable for a non-self target.**
+
+`app.require_staff(['backbone_admin'])` admits only an *active* admin. So if the
+target is a *different* active admin, there are necessarily at least two active
+admins and the count can never be `<= 1`. The property T18 names is actually
+enforced by the **self-revocation refusal** sitting above it.
+
+The count guard is kept anyway. It becomes load-bearing the moment anyone
+relaxes the self check or widens who may call `revoke_staff` — precisely the
+change a reviewer would otherwise wave through, since the test would still pass
+without it.
+
+The same reasoning applies to `set_staff_role`, where demotion is the other
+route to zero admins.
+
+**A bug this surfaced.** Both guards originally tested the count of active
+admins without checking whether the *target* was active, so revoking or
+demoting an **invited** admin — one who has never signed in — was refused with
+"that is the last active backbone_admin", about a principal that is not active
+at all. An admin who mistyped an address while inviting a colleague could not
+withdraw the invitation until a second admin was appointed *and had signed in*.
+Fixed in 0013; the guard now requires the target to be active.
