@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
+import { RetentionPanel, type JobHealth } from './RetentionPanel';
 import { age, sgt } from '@/components/fmt';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +53,10 @@ export default async function HealthPage() {
   const principal = await requireStaff(['backbone_operator', 'backbone_admin']);
   const sb = await supabaseServer();
 
-  const { data, error } = await sb.rpc('partner_health');
+  const [{ data, error }, jobs] = await Promise.all([
+    sb.rpc('partner_health'),
+    sb.rpc('job_health'),
+  ]);
 
   if (error) {
     return (
@@ -149,6 +153,7 @@ export default async function HealthPage() {
           </ul>
         )}
       </section>
+      <RetentionPanel job={(jobs.data as unknown as JobHealth) ?? null} />
     </AppShell>
   );
 }
