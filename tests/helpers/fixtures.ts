@@ -25,6 +25,16 @@ export interface World {
   partnerAId: string;
   partnerBId: string;
   pairId: string;
+  /**
+   * A pair reserved for tests that MUTATE pair-level state.
+   *
+   * markup_one_active permits a single active version per currency pair, so a
+   * test creating one on the shared USD/NGN pair silently RETIRES the seed's
+   * — and teardown then leaves that pair with no active markup, quietly
+   * breaking the demo world for everyone afterwards. Tests that write markup
+   * use this pair instead.
+   */
+  testPairId: string;
   partnerPairAId: string;
   partnerPairBId: string;
   rateAId: string;
@@ -34,28 +44,51 @@ export interface World {
 
 /** Remove every test artefact. Safe to call when nothing exists. */
 export async function teardown(): Promise<void> {
-  // Ordered by dependency. Test rows only -- matched on the test slugs and
-  // the reserved e-mail prefix, so production data cannot be touched.
-  await q(`delete from public.audit_events where partner_id in
-             (select id from public.partners where slug in ($1,$2))`, [F.partnerA.slug, F.partnerB.slug]);
-  await q(`delete from public.rates where partner_id in
-             (select id from public.partners where slug in ($1,$2))`, [F.partnerA.slug, F.partnerB.slug]);
-  await q(`delete from public.rate_submissions where partner_id in
-             (select id from public.partners where slug in ($1,$2))`, [F.partnerA.slug, F.partnerB.slug]);
-  await q(`delete from public.markup_versions where created_by in
-             (select id from public.principals where email like 'ratehub.test.%')`);
-  await q(`delete from public.partner_pairs where partner_id in
-             (select id from public.partners where slug in ($1,$2))`, [F.partnerA.slug, F.partnerB.slug]);
-  await q(`delete from public.partner_memberships where principal_id in
-             (select id from public.principals where email like 'ratehub.test.%')`);
-  await q(`delete from public.staff_profiles where principal_id in
-             (select id from public.principals where email like 'ratehub.test.%')`);
+  // Deleted in dependency order, and scoped by the reserved e-mail prefix and
+  // the test slugs so production rows can never be touched.
+  //
+  // Every FOREIGN KEY that points at principals has to be cleared first, and
+  // it is easy to miss one: staff actions such as invite_staff and
+  // create_markup_version write audit rows with partner_id NULL, so a
+  // partner-scoped delete leaves them behind and the principal delete then
+  // fails on audit_events_actor_id_fkey. The full set is enumerated here
+  // rather than discovered one failure at a time.
+  const TEST_PRINCIPALS = `select id from public.principals where email like 'ratehub.test.%'`;
+  const TEST_PARTNERS = `select id from public.partners where slug in ($1,$2)`;
+  const slugs = [F.partnerA.slug, F.partnerB.slug];
+
+  // 1. audit_events -> principals.actor_id, partners.partner_id
+  await q(
+    `delete from public.audit_events
+      where actor_id in (${TEST_PRINCIPALS})
+         or partner_id in (${TEST_PARTNERS})`,
+    slugs,
+  );
+  // 2. rates -> principals.withdrawn_by, and self-references via superseded_by
+  await q(`delete from public.rates where partner_id in (${TEST_PARTNERS})`, slugs);
+  await q(`delete from public.rates where withdrawn_by in (${TEST_PRINCIPALS})`);
+  // 3. rate_submissions -> principals.submitted_by
+  await q(`delete from public.rate_submissions where partner_id in (${TEST_PARTNERS})`, slugs);
+  await q(`delete from public.rate_submissions where submitted_by in (${TEST_PRINCIPALS})`);
+  // 4. markup_versions -> principals.created_by AND principals.retired_by
+  await q(
+    `delete from public.markup_versions
+      where created_by in (${TEST_PRINCIPALS})
+         or retired_by in (${TEST_PRINCIPALS})`,
+  );
+  // The dedicated test pair, so nothing here can disturb seed markup.
+  await q(`delete from public.markup_versions where currency_pair_id in
+             (select id from public.currency_pairs where base_ccy='USD' and quote_ccy='ZAR')`);
+  // 5. the join tables, then the principals and partners themselves
+  await q(`delete from public.partner_pairs where partner_id in (${TEST_PARTNERS})`, slugs);
+  await q(`delete from public.partner_memberships where principal_id in (${TEST_PRINCIPALS})`);
+  await q(`delete from public.staff_profiles where principal_id in (${TEST_PRINCIPALS})`);
   await q(`delete from public.principals where email like 'ratehub.test.%'`);
-  await q(`delete from public.partners where slug in ($1,$2)`, [F.partnerA.slug, F.partnerB.slug]);
+  await q(`delete from public.partners where slug in ($1,$2)`, slugs);
+
   // Currencies and canonical pairs are SHARED reference data, not test
   // artefacts: the seed uses USD/NGN too, and D8 allows exactly one row per
-  // couple. Deleting them here fails on partner_pairs' foreign key and would
-  // destroy seed data if it succeeded. The fixture reuses them instead.
+  // couple. They are deliberately left in place.
 
   const admin = adminClient();
   const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -79,6 +112,15 @@ export async function buildWorld(): Promise<World> {
            on conflict (base_ccy, quote_ccy) do nothing`);
   const [pair] = await q<{ id: string }>(
     `select id from public.currency_pairs where base_ccy = 'USD' and quote_ccy = 'NGN'`,
+  );
+
+  await q(`insert into public.currencies (code, name, kind, minor_units)
+           values ('ZAR','South African Rand','fiat',2)
+           on conflict (code) do nothing`);
+  await q(`insert into public.currency_pairs (base_ccy, quote_ccy) values ('USD','ZAR')
+           on conflict (base_ccy, quote_ccy) do nothing`);
+  const [testPair] = await q<{ id: string }>(
+    `select id from public.currency_pairs where base_ccy = 'USD' and quote_ccy = 'ZAR'`,
   );
 
   // Partner A has its convention confirmed; Partner B does not, so the [A-1]
@@ -151,6 +193,7 @@ export async function buildWorld(): Promise<World> {
     partnerAId: pa!.id,
     partnerBId: pb!.id,
     pairId: pair!.id,
+    testPairId: testPair!.id,
     partnerPairAId: ppa!.id,
     partnerPairBId: ppb!.id,
     rateAId,

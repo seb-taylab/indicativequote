@@ -803,3 +803,50 @@ equal in both directions — an applied migration with no file, and a file never
 applied, both fail. Fixing the instance without the guard would have left the
 next direct `apply_migration` free to do it again, and the pressure to do that
 is highest exactly when someone is moving fast.
+
+---
+
+## F21 — T10 and T16–T20 were never automated, and a test corrupted shared state
+
+**Severity: medium. Status: CLOSED.**
+
+Two separate problems, found together.
+
+**1. Coverage was overstated.** T10, T16, T17, T18, T19 and T20 were verified
+during the build by impersonating roles in SQL and were never added to the
+suite. §20.2 is explicit that the matrix must be *"automated, through the real
+client with real sessions — never a manual check, never a service-role query"*,
+and §21.2 requires T1–T26 to pass that way.
+
+Counting `it()` blocks made this easy to miss: `matrix.test.ts` reported 23
+passing tests, which reads like T1–T23 but is not. A check done once by hand
+proves the code was right that afternoon; only a test proves it is still right,
+and TM4/TM5 are precisely the guarantees a refactor reopens quietly.
+
+Now in `tests/access/rpc-authorisation.test.ts` — 19 assertions through real
+sessions. Suite: **96 tests across 4 files.**
+
+**2. A test destroyed seed data.** `markup_one_active` permits one active
+markup version per currency pair. The new tests created versions on the shared
+USD/NGN pair, which **retired the seed's**, and teardown then deleted the
+replacement — leaving the pair with no active markup at all. The board silently
+stopped ranking anything for USD/NGN, and the seed world was broken for
+everyone afterwards.
+
+Nothing failed. The tests passed while quietly removing the state the
+demonstration environment depends on.
+
+**Fix.** The fixture now provisions a dedicated `USD/ZAR` pair, and every test
+that mutates pair-level state uses it. Seed markup restored.
+
+**The teardown lesson, worth generalising.** Three consecutive foreign-key
+failures came from clearing references to test principals one at a time —
+`markup_versions.retired_by`, then `audit_events.actor_id` (staff actions write
+audit rows with `partner_id` NULL, so a partner-scoped delete misses them).
+Teardown now enumerates every FK pointing at `principals` explicitly, in
+dependency order, rather than discovering them one failure at a time.
+
+**Standing rule:** a test that writes to shared reference data — a canonical
+pair, a currency, a markup version — must own its own row, not borrow the
+seed's. Constraints that permit exactly one active thing per key make borrowing
+destructive rather than merely untidy.
