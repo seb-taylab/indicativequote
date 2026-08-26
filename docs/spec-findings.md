@@ -198,3 +198,80 @@ a silent auto-nudge, because altering a partner's stated numbers without telling
 them is how a rate board loses the trust §2 says decides the outcome.
 
 No schema change. Lands with `submit_rates` in step 4.
+
+---
+
+## F6 — The registry can never admit a new currency
+
+**Severity: medium. Status: CLOSED — additive RPC.**
+
+§13.2 gives `register_currency_pair(p_base, p_quote)` but no way to add a
+currency, and `currency_pairs` has foreign keys to `currencies(code)`. As
+specified, `register_currency_pair` can only ever reference currencies the
+database was seeded with, and there is no seed defined either — §18.1 covers
+seed *partners and rates*, not the currency registry.
+
+So on a fresh production database the first call to `register_currency_pair`
+fails on a foreign key, and nothing in the spec's RPC surface can fix it. §13
+is explicit that it is the complete write surface: *"If an operation is not
+there, it cannot happen."*
+
+**Fix.** `register_currency(p_code, p_name, p_kind, p_minor_units)`, admin-only,
+same audit shape as its sibling, action `registry.add_currency`. Normalises to
+uppercase and trims, so `' usd '` and `'USD'` cannot both be registered.
+
+---
+
+## F7 — Audit events in one transaction are not orderable
+
+**Severity: low. Status: CLOSED — index and ordering rule.**
+
+`audit_events.occurred_at` defaults to `now()`, which is **transaction start
+time**, not statement time. §13 requires every RPC to write its audit event in
+the same transaction as its effect, so any RPC writing more than one event —
+or any transaction calling more than one RPC — produces events that are
+indistinguishable by timestamp.
+
+Observed: `partner.create`, `partner.set_policy` and `partner.confirm_convention`
+written in one transaction came back ordered *confirm, set_policy, create*. The
+sort had nothing to break the tie with, and §11.7's index is on
+`(occurred_at desc)` alone.
+
+An audit trail that cannot say which of two events came first is weaker than it
+looks, and §16.3's audit page is reverse-chronological.
+
+**Fix.** `id` is `bigserial` and monotonic, so it is the tiebreaker. Added
+`(occurred_at desc, id desc)` indexes, and every read of `audit_events` MUST
+order by both. `occurred_at` is left as specified — moving it to
+`clock_timestamp()` would make an event's stamp disagree with the transaction
+it belongs to, which is a worse trade.
+
+---
+
+## N1 — Supabase advisor warns on every RPC. Expected; do not "fix" it.
+
+**Severity: none. Status: NOTED.**
+
+`get_advisors(security)` reports
+`authenticated_security_definer_function_executable` for every function in §13,
+e.g. *"`public.create_partner` can be executed by the `authenticated` role as a
+`SECURITY DEFINER` function"*.
+
+This is the specified design, not a defect. §13: *"Each is granted to
+`authenticated` explicitly; the role check inside the function is the
+authorisation."* D2 makes RPC the only write path, so the RPCs must be
+reachable by signed-in users; what stops an RM creating a partner is
+`app.require_staff()` inside the function, not the grant.
+
+Verified by execution, impersonating real roles:
+
+| Caller | `create_partner` | `confirm_partner_convention` | `set_partner_status` |
+|---|---|---|---|
+| `backbone_admin` | OK | OK | OK |
+| `rm_viewer` | refused 42501 | refused 42501 | refused 42501 |
+| anonymous | refused 42501 | refused 42501 | refused 42501 |
+
+**Revoking these grants to clear the warning would break every write path in
+the application.** The warning is only actionable if a function ever lacks its
+`app.require_staff()` / `app.require_partner()` guard — which is what the
+per-RPC authorisation tests exist to catch.
