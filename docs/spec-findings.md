@@ -1223,3 +1223,44 @@ before attempting the correction.
 
 That is the same failure mode as F24's conditional assertions: a green test
 that describes the wrong situation.
+
+---
+
+## N8 — §16.1's degraded states are now asserted, and a note on skipping
+
+**Severity: none. Status: NOTED. No defect found.**
+
+§20.3 requires *"every row of 16.1 rendered and asserted"* and none of it had
+been tested. 13 tests now cover the degraded states against the **server-
+rendered HTML of the real application**, with real magic-link sessions — the
+assertions are about what the server decides to say, which is where each of
+these states is actually chosen.
+
+Covered: the board's empty state naming which partners support the pair; no
+active markup withholding every row, saying why, and linking to `/admin/markup`;
+all-rows-ineligible showing them below the divider with reasons and a withheld
+count; stale rows rendered rather than hidden, with the status word present
+(§16.2: never colour alone); the disclaimer beneath the table; both submission
+entry paths so D7's "no paste-only dead end" holds; session expiry redirecting
+to `/login` with **no data cached in the URL**; and permission denied stating
+plainly what is not allowed and offering a way back rather than a blank page.
+
+§5's zone separation is asserted in both directions, which had not been tested
+before: a partner reaching `/admin/markup` and a member of staff reaching
+`/partner/submit` both land on `/denied`, not on a 500 or an empty page.
+
+*"Best execution"* is asserted absent across five routes, as §7 demands.
+
+**On the skip.** These need a dev server, so the suite would otherwise fail
+whenever one is not running — which reads like a product defect and trains
+people to ignore red. They now skip instead, but **loudly**: a 72-character
+banner naming what was not covered and why a green run without them does not
+satisfy §20.3.
+
+A quietly skipping suite is worse than a failing one. §20 calls tests
+"executable doctrine", and doctrine that silently does not run is not doctrine
+— `13 passed` and `13 skipped` look identical at a glance in a scrolling log.
+The skip path was verified by pointing the suite at a dead port, because a skip
+mechanism that does not actually skip is just an untested branch.
+
+`npm run test:degraded` runs them alone.

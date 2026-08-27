@@ -19,7 +19,8 @@
     "test:access": "vitest run tests/access",
     "typecheck": "tsc --noEmit",
     "a11y": "node scripts/a11y-scan.mjs && node scripts/contrast-check.mjs",
-    "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs"
+    "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs",
+    "test:degraded": "vitest run tests/degraded"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
