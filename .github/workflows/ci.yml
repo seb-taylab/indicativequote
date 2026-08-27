@@ -1,0 +1,218 @@
+# §18.5 requires "dependency scanning in CI". §20 calls the tests "executable
+# doctrine". Neither is true of a repository with no CI, and this one had none:
+# every check in it had only ever run on one laptop, by hand, when someone
+# remembered. The first `npm audit` run here found seven advisories, one of
+# them critical.
+#
+# The split below is forced by what the tests actually need. §20.2 requires the
+# access tests to run "with a real session, never a service-role query", which
+# means a real Supabase project. Those cannot run on a fork's pull request, and
+# they must not run concurrently against a shared project. Everything that does
+# NOT need a project runs everywhere, on every pull request, unconditionally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege. This workflow reads code and nothing else.
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Everything that needs no credentials. Runs on every push and every pull
+  # request, including from forks.
+  # ---------------------------------------------------------------------------
+  checks:
+    name: Types, lint, unit tests, build guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests (pure domain logic, no database)
+        run: npm run test:unit
+
+      # The build is not here for the artefact. It is here because `npm run
+      # build` runs the two guards that §12.3 and §12.7 require to FAIL A
+      # BUILD: no service-role material in the client bundle, and no decimal
+      # reaching JavaScript arithmetic. Placeholders are enough -- every route
+      # is server-rendered on demand, so nothing contacts Supabase at build
+      # time. Verified: the build is green with these exact values.
+      - name: Build, with the §12.3 and §12.7 guards
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-real-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-key-0000000000
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # §18.5: dependency scanning. Its own job so that a new advisory is legible
+  # as "a dependency became vulnerable" rather than hiding inside a test run.
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency scan (§18.5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fails the build on high and critical. Moderate and low are reported in
+      # the next step without failing: a threshold nobody can ever clear is a
+      # threshold everybody learns to ignore.
+      - name: Fail on high or critical advisories
+        run: npm audit --audit-level=high
+
+      - name: Report everything, including moderate and low
+        if: always()
+        run: npm audit || true
+
+  # ---------------------------------------------------------------------------
+  # Does this run have a real Supabase project to test against?
+  #
+  # The `secrets` context is not available in a job-level `if`, so presence is
+  # resolved here into an output. Fork pull requests never receive secrets, so
+  # this correctly reports false for them.
+  # ---------------------------------------------------------------------------
+  project-available:
+    name: Check for a test project
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "$DATABASE_URL" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # The suite that actually proves the security model: RLS, grants, RPC
+  # authorisation, the golden tests, the schema invariants and the degraded
+  # states. §20.2 forbids doing any of it with a service-role query, so it
+  # needs a real project and real magic-link sessions.
+  #
+  # Serialised. These create and destroy principals in a shared project, and
+  # F21 was exactly a test corrupting shared state.
+  # ---------------------------------------------------------------------------
+  database:
+    name: Access matrix, golden tests, degraded states
+    needs: project-available
+    if: needs.project-available.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ratehub-test-project
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # §16.1's degraded-state tests assert what the SERVER renders, so they
+      # need the application running. Without it they skip -- loudly, but they
+      # skip, and §20.3 requires every row of §16.1 to be asserted.
+      - name: Start the application
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run dev > dev-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/login; then
+              echo "Application is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "The application did not start within 120s."
+          cat dev-server.log
+          exit 1
+
+      - name: Full suite
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RATEHUB_BASE_URL: http://localhost:3000
+        run: npm run test
+
+      # The migration files are the schema (§18.1). This proves they still
+      # reproduce it, which is what a restore depends on -- see
+      # docs/restore-runbook.md.
+      - name: Verify the schema rebuilds from migrations (§18.1)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:verify-rebuild
+
+      - name: Dev server log
+        if: failure()
+        run: cat dev-server.log || true
+
+  # ---------------------------------------------------------------------------
+  # N8's doctrine, applied to CI: a suite that silently does not run is worse
+  # than one that fails, because green means the same either way at a glance.
+  # When the database job is skipped, say so where it cannot be missed.
+  # ---------------------------------------------------------------------------
+  announce-skip:
+    name: Announce what did NOT run
+    needs: project-available
+    if: needs.project-available.outputs.available != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say plainly what was not covered
+        run: |
+          echo "::warning title=Security tests did not run::No Supabase project was available to this run, so RLS, grants, RPC authorisation, the golden tests and the degraded states were NOT exercised. A green result here does not mean the access model is intact."
+          {
+            echo "## The security tests did not run"
+            echo
+            echo "No \`DATABASE_URL\` secret was available, so this run **did not** exercise:"
+            echo
+            echo "- T1-T23, the partner isolation and privilege-escalation matrix (TM1, TM3)"
+            echo "- RPC authorisation, T16-T20"
+            echo "- The four golden tests of §20.1"
+            echo "- Schema invariants T24-T26, including \"no function executable by PUBLIC\""
+            echo "- §16.1's degraded states"
+            echo
+            echo "This is expected on a fork's pull request, which never receives secrets."
+            echo "It is **not** expected on \`main\`: if it happens there, the repository"
+            echo "secrets are missing and the access model is going unverified."
+            echo
+            echo "A green tick on this run means the types, the lint rules, the unit tests,"
+            echo "the build guards and the dependency scan passed. Nothing more."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1401,3 +1401,106 @@ before pushing.
 the OneDrive-synced folder. This is now the fourth distinct class of damage from
 the same cause, and the first that can corrupt a commit without any error being
 shown.
+
+---
+
+## F27 — There was no CI, and the first dependency scan found seven advisories
+
+§18.5's transport row ends with **"dependency scanning in CI"**. §20 opens by
+calling the tests "executable doctrine". Neither statement was true: there was
+no `.github/` directory. Every check in this project — 207 tests, the schema
+drift guard, the two build guards, the accessibility scan — had only ever run
+on one laptop, by hand, when someone remembered to run it.
+
+`.github/workflows/ci.yml` now exists. What it found on its first run is the
+argument for why it should have existed from the start.
+
+### Seven advisories, one critical
+
+`npm audit` had never been run against this tree. It reported **7
+vulnerabilities: 1 critical, 2 high, 4 moderate.**
+
+All seven were in development and build tooling rather than in anything served
+to a browser, and none was exploitable as configured — the critical
+(GHSA-5xrq-8626-4rwp) requires the Vitest UI server to be listening, which this
+project never starts. That is the correct assessment, and it is also exactly
+the assessment nobody was in a position to make, because nothing was looking.
+
+`npm audit fix --force` proposed `next@16.3.3` and `vitest@4.1.11`, two major
+bumps. Both were avoidable:
+
+- **postcss** (2 high, 1 moderate) was already present at a patched 8.5.26; the
+  vulnerable 8.4.31 was a stale nested copy under `next`. An `overrides` entry
+  pinning `postcss` to `^8.5.26` resolved all three **without touching Next's
+  major version**.
+- **vitest** and its `vite`/`esbuild` chain (1 critical, 1 high, 3 moderate)
+  needed 2.x → 3.2.7 — one major, not the two npm suggested. The suite uses
+  nothing exotic (`describe`, `it`, `expect`, `beforeAll`, `describe.runIf`,
+  and `fileParallelism: false`), so the risk was low and, more to the point,
+  measurable: **all 207 tests pass on vitest 3.**
+
+Result: **0 vulnerabilities**, with `next` still on 15.
+
+### `npm run lint` had never linted anything
+
+Wiring the existing `lint` script into CI surfaced a second problem. There was
+no ESLint dependency, no `eslint.config.*`, no `.eslintrc`. The script ran
+`next lint`, which in Next 15.5 is deprecated and responds by opening an
+**interactive codemod prompt**. On a laptop that is a confusing menu; in CI it
+is a hung job.
+
+So the lint script was scaffolding that had never run, and it was about to be
+made load-bearing. ESLint 9 with `next/core-web-vitals` and `next/typescript`
+is now configured, and `npm run lint` is `eslint . --max-warnings=0`.
+
+The codebase came back almost clean: one error and two warnings across the
+whole tree, all three fixed. The error was an unused `Decimal` import in
+`tests/unit/parser-hostile.test.ts` — harmless in itself, but the same shape as
+F24, where a value was computed and then never actually asserted on.
+
+Two rules are set beyond the Next defaults, each for a reason this project has
+already paid for:
+
+- `@typescript-eslint/no-unused-vars` as an **error** — F24's conditional
+  assertions were a result computed and not checked.
+- `@typescript-eslint/no-explicit-any` as an **error** — §12.7/TM16 route every
+  decimal across every boundary as text, and
+  `scripts/assert-no-float-arithmetic.mjs` is name-directed, so it cannot see a
+  NUMERIC that has become a double by way of `any`.
+
+### How the workflow is split, and why it announces its own gaps
+
+§20.2 requires the access tests to run "with a real session, never a
+service-role query", so they need a real Supabase project. That forces a split:
+
+- **No credentials** — typecheck, lint, unit tests, `npm audit` (failing on
+  high and critical), and a build. The build is not there for the artefact; it
+  is there because `npm run build` is what runs the guards §12.3 and §12.7
+  require to fail a build. Verified: it builds green with placeholder env, as
+  every route is server-rendered on demand and nothing contacts Supabase at
+  build time.
+- **Credentials required** — the access matrix, RPC authorisation, the golden
+  tests, schema invariants, the degraded states (with the dev server started so
+  they do not skip), and the §18.1 rebuild check.
+
+The second group cannot run on a fork's pull request. N8's rule applies
+directly: a suite that silently does not run is worse than one that fails,
+because green looks identical either way. When the project secrets are absent
+the workflow emits a step annotation and a run summary naming exactly what was
+not exercised — T1–T23, the golden tests, T24–T26, §16.1 — and stating that a
+green tick means the types, lint, unit tests, build guards and dependency scan
+passed and nothing about who can read whose rates.
+
+Runs against the shared project are serialised with a concurrency group. F21
+was a test corrupting shared state, and the documentation is explicit that
+these secrets should point at a **staging** project, not production —
+serialising damage is not preventing it.
+
+### A smaller thing, fixed while here
+
+There was no `.gitattributes`. The workflow contains shell scripts that run on
+Ubuntu, and a Windows checkout with `core.autocrlf=true` gives them CRLF
+endings, which bash rejects with `$'\r': command not found`. `*.yml`, `*.yaml`,
+`*.sh` and `*.sql` are now pinned to LF. The SQL entry is not cosmetic: §18.1
+makes those files the schema, and their diffs should be honest across
+platforms.

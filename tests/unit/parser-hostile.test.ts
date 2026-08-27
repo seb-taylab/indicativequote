@@ -20,7 +20,6 @@
  * a fat-fingered message into a confidently wrong price.
  */
 import { describe, expect, it } from 'vitest';
-import Decimal from 'decimal.js';
 import { buildRegistry, parseRateBlock } from '../../src/domain/parser';
 
 const REGISTRY = buildRegistry(

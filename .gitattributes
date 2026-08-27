@@ -1,0 +1,11 @@
+# The CI workflow contains shell scripts that run on Ubuntu. A Windows
+# checkout with core.autocrlf=true would give them CRLF endings, and bash
+# fails on the trailing carriage return with the famously unhelpful
+# "$'\r': command not found". Pin them to LF regardless of platform.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh  text eol=lf
+
+# SQL migrations are the schema (§18.1). Keeping them byte-stable across
+# platforms keeps their diffs honest.
+*.sql text eol=lf

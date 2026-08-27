@@ -105,6 +105,45 @@ These are §1.5 and §21.2, not optional:
       refuses to run where non-demo partners exist, but it does not remove
       itself.
 
+## 7. Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull
+request. It is split by what needs credentials.
+
+**Runs always, on forks included, with no secrets:** typecheck, ESLint, the
+unit tests, `npm audit` (failing on high and critical), and a build — the build
+is there because `npm run build` is what runs the two guards §12.3 and §12.7
+require to fail a build, not for the artefact.
+
+**Runs only when repository secrets are present:** the access matrix, RPC
+authorisation, the golden tests, the schema invariants, the degraded states,
+and the §18.1 rebuild check. §20.2 forbids testing any of it with a
+service-role query, so these need a real project and real magic-link sessions.
+
+### Repository secrets
+
+Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|---|---|
+| `DATABASE_URL` | Pooler connection string for the test project |
+| `NEXT_PUBLIC_SUPABASE_URL` | Test project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Test project anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Test project service-role key |
+
+**Point these at a staging project, not at production.** These tests create and
+destroy principals, invite and revoke staff, and write rates. §18.1 already
+calls for "a staging project with seed data" and this is what it is for. F21
+was a test corrupting shared state; the workflow serialises runs against one
+project with a concurrency group, but serialising damage is not preventing it.
+
+**Without `DATABASE_URL`, the security tests do not run**, and the workflow says
+so in a step annotation and in the run summary rather than passing quietly. A
+green tick on such a run means the types, the lint rules, the unit tests, the
+build guards and the dependency scan passed — nothing about who can read whose
+rates. That is expected on a fork's pull request, which never receives secrets.
+It is not expected on `main`.
+
 ## A note on plan limits
 
 The team is on the **hobby** plan, where Deployment Protection is unavailable.
