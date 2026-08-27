@@ -1595,3 +1595,111 @@ that no longer existed. Stopping the server, deleting `.next` and restarting
 fixed it. Worth recording because the symptom — the entire login path returning
 500 — looks exactly like a serious regression, and because F12 was also a case
 where the application appeared broken for reasons that were not in the source.
+
+---
+
+## F29 — Two §18.5 controls that were believed rather than verified
+
+§18.5's transport line ends: *"Standard `POST` with CSRF protection; the
+existing app's GET-with-query write pattern MUST NOT be carried across."* That
+is one of the few places the specification names a defect in the system being
+replaced. Nothing here had ever checked it.
+
+The reasoning available was "Next.js Server Actions handle CSRF". That is the
+same reasoning F1 punished: §12.2 assumed `ALTER DEFAULT PRIVILEGES` worked on
+Supabase, the probe came back `{=X/postgres,...}`, and it did not.
+
+### The control holds, and it is now proved by effect rather than by status code
+
+`tests/access/csrf.test.ts` posts **real** Server Action requests. Next.js
+encodes an action for the no-JavaScript path as hidden inputs inside the form,
+so the test reads them back out of `/login` and replays them. That matters: a
+hand-made approximation of an action request would be rejected for being
+malformed, and would look exactly like working CSRF protection.
+
+The assertion is about the **side effect**, not the response. A cross-origin
+request that returns 500 has told you nothing if the write happened anyway. The
+login action is used because its effect is observable and harmless: an unknown
+address writes an `access.signin_denied` audit row (0021) and sends no e-mail.
+
+Measured:
+
+| Request | Status | Audit row written |
+|---|---|---|
+| Same origin | 200 | yes |
+| `Origin: https://evil.example` | 500 | **no** |
+
+Both halves are asserted, and a third test sends the two requests
+back-to-back — same freshly-fetched action id, same fields, same encoding, the
+Origin header the only difference. Without the same-origin half, "no write
+happened" would be equally consistent with a request that never worked at all.
+F24 and N7 were both assertions that would have passed whatever the code did.
+
+Worth noting for whoever sees it in a log: a rejected cross-origin action
+surfaces as a **500**, not a 403. The control is doing its job; the status is
+just unhelpful.
+
+### The one GET that writes is now a recorded decision
+
+`/auth/callback` is a `GET` and it does write — it calls `record_sign_in` to
+bind the auth user to the principal. That is not the pattern §18.5 forbids: a
+magic link cannot be anything other than a GET, and the single-use short-expiry
+token *is* the credential, consumed on use.
+
+The distinction is real but easy to lose, so a test now asserts that
+`app/auth/callback/route.ts` is the **only** route handler in the application.
+A second write-on-GET route cannot appear without that test failing, which
+turns the exception from an oversight into a decision someone has to
+deliberately revisit.
+
+A separate test confirms that `GET /login?email=...` writes nothing at all.
+
+### §18.2's log rule held by coincidence, and now holds by construction
+
+§18.2 also says: *"Application logs MUST NOT contain rate values, partner rate
+data, or `raw_input`."*
+
+This was true — there were no `console.*` calls anywhere in the application.
+That is a coincidence, not a control. The first person to debug a submission
+problem by logging the parsed rows ends it, probably at 17:00 on a day when a
+partner is complaining, which is exactly when nobody is thinking about D1.
+
+What is at stake is specific: a log line has **no RLS, no retention, and no
+deletion path**. §D1 makes the board internal-only, TM1 is a partner reading a
+competitor's rates, and §18.4 retains `raw_input` for 90 days precisely because
+it is a partner's own pasted text that "may carry greetings, names or unrelated
+content". Rate data in a log sits outside every control this system has.
+
+`scripts/assert-no-rate-logging.mjs` joins the other two build guards. It fails
+the build on a `console.*` call mentioning anything that carries rate data or
+partner text, drawn from the actual schema (`raw_input`, `partner_bid`,
+`partner_ask`, the `client_*` board side, `markup`, `spread`) plus whole-object
+names like `parsed`, `rows` and `submission` — logging the object logs
+everything in it. `// log-safe: <reason>` is the annotated exception.
+
+It carries the same self-test the decimal rule does, and for the same reason: a
+rule scanning a codebase with nothing to find passes whether or not it works.
+It also carries a **negative** self-test — two benign lines that must NOT be
+flagged — because a guard that cries wolf teaches people to route around it.
+
+Verified beyond the self-test by planting a real violating file: two violations
+caught with correct file, line and offending term; `console.info('page
+rendered')` left alone; the `// log-safe:` annotation honoured; clean once the
+file was removed.
+
+**Not addressed:** §18.2 also requires that "error trackers are configured with
+the same exclusion". No error tracker is configured, so there is nothing to
+configure — but if one is ever added, this guard does not cover it, because the
+leak would be an exception object rather than a log call.
+
+### The `.next` collision recurred, and the habit has changed
+
+Running `npm run build` while the dev server is running overwrote `.next` again
+and produced the OneDrive `EINVAL readlink .next\prerender-manifest.json`
+failure recorded under N4. This is the same collision that made
+`/auth/callback` return 500 during F28.
+
+The working habit is now: stop the dev server, delete `.next`, build, delete
+`.next`, restart. CI does not have this problem — it builds in a container with
+no dev server and no OneDrive — which is one more argument for the checkout not
+living in a synced folder.

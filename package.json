@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/assert-no-service-key.mjs && node scripts/assert-no-float-arithmetic.mjs",
+    "build": "next build && node scripts/assert-no-service-key.mjs && node scripts/assert-no-float-arithmetic.mjs && node scripts/assert-no-rate-logging.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "db:push": "node scripts/apply-migrations.mjs",
@@ -21,7 +21,8 @@
     "a11y": "node scripts/a11y-scan.mjs && node scripts/contrast-check.mjs",
     "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs",
     "test:degraded": "vitest run tests/degraded",
-    "db:verify-rebuild": "node scripts/verify-rebuild.mjs"
+    "db:verify-rebuild": "node scripts/verify-rebuild.mjs",
+    "lint:logs": "node scripts/assert-no-rate-logging.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

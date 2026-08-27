@@ -30,7 +30,7 @@ out."* Three defects were found doing exactly that — see
 
 ## Test suite
 
-224 tests across 12 files. `npm test` runs all of them; `npm run a11y` is
+229 tests across 13 files. `npm test` runs all of them; `npm run a11y` is
 separate. CI runs the credential-free half on every push and pull request,
 and the rest only where a real project is available -- see
 [docs/deploying.md](docs/deploying.md).
@@ -45,6 +45,7 @@ and the rest only where a real project is available -- see
 | `tests/access/rpc-authorisation.test.ts` | T10, T16–T20 — RPC authorisation through real sessions |
 | `tests/access/submission-failures.test.ts` | §6.4 atomicity holds while the attempt is still recorded |
 | `tests/access/monitoring.test.ts` | §18.2 signals and their thresholds, both sides of each boundary |
+| `tests/access/csrf.test.ts` | §18.5 — cross-origin Server Action POSTs write nothing; no write over GET |
 | `tests/golden/supersession.test.ts` | Golden 4 — supersession, renewal, six-way concurrency, D5 |
 | `tests/golden/eligibility.test.ts` | E1–E9, the eligibility gates |
 | `tests/golden/lifecycle.test.ts` | Reactivation and correction idempotency |
