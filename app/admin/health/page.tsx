@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
+import { MonitoringPanel, type Signal } from './MonitoringPanel';
 import { RetentionPanel, type JobHealth } from './RetentionPanel';
 import { FailuresPanel, type PartnerFailures } from './FailuresPanel';
 import { age, sgt } from '@/components/fmt';
@@ -54,9 +55,10 @@ export default async function HealthPage() {
   const principal = await requireStaff(['backbone_operator', 'backbone_admin']);
   const sb = await supabaseServer();
 
-  const [{ data, error }, jobs] = await Promise.all([
+  const [{ data, error }, jobs, signals] = await Promise.all([
     sb.rpc('partner_health'),
     sb.rpc('job_health'),
+    sb.rpc('monitoring_signals'),
   ]);
 
   if (error) {
@@ -134,6 +136,7 @@ export default async function HealthPage() {
         </table>
       </div>
 
+      <MonitoringPanel signals={(signals.data as unknown as Signal[]) ?? null} />
       <FailuresPanel failures={result.recent_failures} />
       <RetentionPanel job={(jobs.data as unknown as JobHealth) ?? null} />
     </AppShell>

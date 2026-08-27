@@ -30,15 +30,25 @@ out."* Three defects were found doing exactly that — see
 
 ## Test suite
 
-104 tests across 5 files. `npm test` runs all of them; `npm run a11y` is separate.
+224 tests across 12 files. `npm test` runs all of them; `npm run a11y` is
+separate. CI runs the credential-free half on every push and pull request,
+and the rest only where a real project is available -- see
+[docs/deploying.md](docs/deploying.md).
 
 | File | Covers |
 |---|---|
 | `tests/unit/domain.test.ts` | Golden 1 and 3, parser, markup, ranking, precision |
+| `tests/unit/parser-hostile.test.ts` | The parser against deliberately hostile input |
+| `tests/unit/timezone.test.ts` | A-3 — UTC storage, SGT display, across a date boundary |
 | `tests/schema/invariants.test.ts` | T24–T26, RLS/policy/view invariants, migration-drift guard |
 | `tests/access/matrix.test.ts` | T1–T9, T11–T15, T21–T23, Golden 2 |
 | `tests/access/rpc-authorisation.test.ts` | T10, T16–T20 — RPC authorisation through real sessions |
+| `tests/access/submission-failures.test.ts` | §6.4 atomicity holds while the attempt is still recorded |
+| `tests/access/monitoring.test.ts` | §18.2 signals and their thresholds, both sides of each boundary |
 | `tests/golden/supersession.test.ts` | Golden 4 — supersession, renewal, six-way concurrency, D5 |
+| `tests/golden/eligibility.test.ts` | E1–E9, the eligibility gates |
+| `tests/golden/lifecycle.test.ts` | Reactivation and correction idempotency |
+| `tests/degraded/states.test.ts` | §16.1, every degraded state, server-rendered |
 
 Golden tests 1 to 4 all present. T1–T26 all covered.
 

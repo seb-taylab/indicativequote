@@ -1504,3 +1504,94 @@ endings, which bash rejects with `$'\r': command not found`. `*.yml`, `*.yaml`,
 `*.sh` and `*.sql` are now pinned to LF. The SQL entry is not cosmetic: §18.1
 makes those files the schema, and their diffs should be honest across
 platforms.
+
+---
+
+## F28 — §18.2 was a table in a document, and the row that mattered most was the enumeration detector
+
+§18.2 specifies seven monitoring signals, each with a threshold and an action.
+**One** had been implemented: the purge job's 25-hour overdue check, added in
+0024. The other six existed only as rows in the specification.
+
+The one that matters most is sign-in denials.
+
+§19/TM12 requires the sign-in response to be **byte-identical** whether an
+address is unknown, known, or revoked. That is the correct defence against
+enumeration, and it has a consequence that is easy to state and easy to forget:
+**an enumeration attempt is invisible from the application by design.** Nothing
+in the product can look different, because looking different is the
+vulnerability. §18.2's "more than 10 denials in ten minutes" is the
+compensating control — the only place an attempt becomes visible at all.
+
+Without it, TM12's byte-identical response is a blindfold rather than a
+defence. Somebody could have walked an address list through the sign-in form
+and left no trace anyone would ever look at. The audit rows were being written
+(`access.signin_denied`, from 0021, with the address in `subject_id` where
+§18.4 says a deletion request can find it) — nothing read them.
+
+`0027_monitoring_signals.sql` implements the table. `MonitoringPanel` renders
+it on `/admin/health`, which is where §18.5/TM14 says anomaly review belongs.
+
+### Five answerable here, two not — and the two are shown anyway
+
+Five signals can be answered from this database: submission failures per
+partner per hour, sign-in denials per ten minutes, partner-pairs stale beyond
+their own hard TTL, advisory-lock wait, and the purge job.
+
+Two cannot: RPC error rate and board p95 latency are properties of the edge,
+measured where requests are served.
+
+They are returned anyway, marked `observable: false`, with a note naming where
+they *are* measured, and rendered with an em dash rather than a zero. A panel
+listing five of seven signals with no comment reads as "all clear" — N8's rule
+about a suite that quietly skips, applied to a monitoring page. Rendering `0`
+for a latency nobody measured would be worse still: a lie an operator could act
+on.
+
+### Two decisions the spec implies but does not state
+
+**The submission-failure threshold is per partner, and the test proves the
+difference.** §18.2 says "more than 2 for one partner in an hour". Four
+failures spread across two partners is two people mistyping; three failures
+from one partner is a partner about to give up and go back to e-mail, which §2
+names as the risk that decides the outcome. There is a test asserting that four
+failures across two partners does **not** breach.
+
+**The stale-pair TTL is per partner too.** `hard_ttl_minutes` is a column on
+`partners`, so "more than one hard TTL" has to be compared against that
+partner's own value, not a constant. A pair that has never had a rate counts as
+stale: it has been without one for longer than any TTL.
+
+### The thresholds are tested on both sides
+
+Every threshold has a test at the boundary and a test either side of it: ten
+denials do **not** breach "more than 10", eleven do, and twenty denials from an
+hour ago do not (the window slides — an alert that never clears is an alert
+everybody ignores).
+
+This is deliberate. F24 and N7 were both cases of an assertion that would have
+passed whatever the code did. A breach test that only ever checks the breached
+state cannot distinguish a working threshold from one hard-coded to `true`.
+
+### Two things found while building it
+
+**The retention purge job had never actually run.** `cron.job` had the entry,
+active, scheduled for 03:17 UTC — and `cron.job_run_details` was empty, because
+the job was created after 03:17 the previous day and today's had not yet come
+round. So F23's fix was *scheduled*, not *proven*. §18.3's point about backups
+applies one layer down: a job that has never run is a belief. Invoking
+`app.run_raw_input_purge(90)` once proved the whole path — it wrote to
+`app.job_runs`, reported `ok`, purged 0 rows (correct: nothing is 90 days old)
+and left the five recent `raw_input`s intact (also correct, and the more
+important half — a purge that nulled recent rows would destroy the
+dispute-resolution record §18.4 exists to keep). Both properties now have
+tests.
+
+**A stale `.next` broke every route, and it was self-inflicted.** Verifying the
+panel, `/auth/callback` returned 500 with `Cannot find module './543.js'`. Not
+a code defect: running a production `npm run build` while the dev server was
+running overwrote `.next`, leaving the dev server's chunk map pointing at files
+that no longer existed. Stopping the server, deleting `.next` and restarting
+fixed it. Worth recording because the symptom — the entire login path returning
+500 — looks exactly like a serious regression, and because F12 was also a case
+where the application appeared broken for reasons that were not in the source.
