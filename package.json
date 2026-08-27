@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit",
     "a11y": "node scripts/a11y-scan.mjs && node scripts/contrast-check.mjs",
     "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs",
-    "test:degraded": "vitest run tests/degraded"
+    "test:degraded": "vitest run tests/degraded",
+    "db:verify-rebuild": "node scripts/verify-rebuild.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

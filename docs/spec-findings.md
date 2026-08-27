@@ -1264,3 +1264,96 @@ The skip path was verified by pointing the suite at a dead port, because a skip
 mechanism that does not actually skip is just an untested branch.
 
 `npm run test:degraded` runs them alone.
+
+---
+
+## N9 — The schema can be rebuilt from migrations alone. It had never been tried
+
+§18.1 makes the migration files the schema: *"applied in order, never
+hand-edited in a dashboard."* But every migration here had only ever been
+applied **incrementally**, to one long-lived database, in the order I happened
+to write them. The from-scratch path — the one a restore actually takes — had
+never once been exercised. F20 had already shown what that costs: two schema
+changes had reached the database with no migration file at all, so a rebuild
+would silently have restored the F15 defect.
+
+`scripts/verify-rebuild.mjs` now creates a scratch database, applies all 26
+migrations in order, and fingerprint-compares seven categories of schema object
+against live.
+
+It passes: **12 tables, 161 columns, 80 constraints, 37 indexes, 24 policies,
+41 functions, 2 views — identical.** §18.1's claim is now checked rather than
+asserted, and §18.3's rehearsal has a mechanical half that a human timing a
+restore no longer has to discover.
+
+Two things fell out of building it.
+
+**An undeclared platform dependency.** The migrations require the `auth` schema,
+`auth.uid()` and an `extensions` schema to already exist. Supabase provisions
+all three before any migration runs, so the dependency is invisible on Supabase
+and fatal anywhere else. The script stubs them explicitly and says so, rather
+than letting a green run imply the migrations are self-contained. This is
+recorded in the runbook: a restore into a fresh *Supabase* project gets them
+free; a restore into bare Postgres does not.
+
+**A cleanup bug that left debris on a real project.** The first run finished the
+comparison and then failed to drop the scratch database:
+`55006 — database "ratehub_rebuild_check" is being accessed by other users`.
+`client.end()` had already been called. The cause is that `DATABASE_URL` points
+at Supabase's **pooler**: `end()` returns the connection to the pool rather than
+closing the server-side session, so for a short window Postgres still sees a
+session on the scratch database. Probing `pg_stat_activity` a minute later
+showed zero sessions — the release is real but asynchronous.
+
+A verification script that abandons a stray database on a production project
+every run is worse than no verification script. Cleanup now terminates
+remaining backends, uses `drop database ... with (force)`, and retries on 55006
+with a backoff. Verified by a full clean run, comparison and drop included.
+
+---
+
+## F26 — §18.3 requires a restore runbook by name, and there was none
+
+§18.3 ends with a sentence that is a deliverable, not advice: *"The restore
+runbook names who does it, in what order, and how the application is pointed at
+the restored project."* It did not exist. `docs/deploying.md` carried an
+unticked checklist line and nothing behind it.
+
+`docs/restore-runbook.md` now exists and answers all three parts.
+
+The finding worth recording is not the missing document but something found
+while writing it.
+
+**A logical-dump restore would silently have undone the privilege lockdown.**
+TM1 — a partner reading a competitor's rates — is defended by revoked grants
+and RLS. Those revocations are ACL state. A dump taken with `--no-acl` or
+`--no-owner`, which is the common default advice for moving a database between
+Supabase projects, restores every table, policy and function *without* them. The
+restored system looks correct, renders correctly, and passes a smoke test, while
+`PUBLIC` access to partner rate data has been quietly reinstated. F1 already
+established that this project cannot rely on default privileges behaving as
+§12.2 assumes; a restore is exactly the moment that would resurface.
+
+The runbook therefore mandates: **schema from migrations, data from the dump.**
+That is only a safe instruction because N9 verified the schema half reproduces
+live exactly — otherwise it trades one silent divergence for another.
+
+Two supporting decisions:
+
+- **The acceptance test for a restore is the access matrix, not the pages.**
+  T1–T23 run with real magic-link sessions and never a service-role query, so
+  they test what a restored board renders *to whom*. A board that renders proves
+  nothing about who can read it. T26 specifically re-checks that no function is
+  executable by `PUBLIC` — the exact property the ACL trap destroys.
+- **What a backup does not contain is stated before the steps, not after.** Auth
+  URL configuration, SMTP, self-signup and the JWT secret all reset. §19/TM12
+  makes sign-in byte-identical whether the email is unknown or the redirect
+  allowlist is wrong, so a misconfigured restore presents as a silent,
+  undiagnosable login failure — which has already cost this project one
+  debugging session.
+
+The runbook is honest about what remains a belief: no nightly logical dump
+exists yet, PITR retention is unconfirmed, and no full restore has ever been
+performed. The schema half is proven; the data half, the dashboard
+reconfiguration and the timing need a human with the clock running, before
+go-live.

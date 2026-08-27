@@ -99,7 +99,7 @@ These are §1.5 and §21.2, not optional:
       discharge this. If the assumption is wrong, every price inverts.
 - [ ] Each partner's agreement permits showing their rates to MetaComp staff.
 - [ ] `T1`–`T23` run green against a real project with real sessions.
-- [ ] A restore from backup rehearsed, timed and written down (§18.3).
+- [ ] A restore from backup rehearsed, timed and written down (§18.3). Runbook: docs/restore-runbook.md. The schema half is verified by `node scripts/verify-rebuild.mjs`; the full rehearsal is still outstanding.
 - [ ] Point-in-time recovery enabled, 7 days minimum.
 - [ ] Seed data removed from any project that will hold real rates. The seed
       refuses to run where non-demo partners exist, but it does not remove
