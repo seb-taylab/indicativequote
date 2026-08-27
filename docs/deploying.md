@@ -99,8 +99,27 @@ These are §1.5 and §21.2, not optional:
       discharge this. If the assumption is wrong, every price inverts.
 - [ ] Each partner's agreement permits showing their rates to MetaComp staff.
 - [ ] `T1`–`T23` run green against a real project with real sessions.
-- [ ] A restore from backup rehearsed, timed and written down (§18.3). Runbook: docs/restore-runbook.md. The schema half is verified by `node scripts/verify-rebuild.mjs`; the full rehearsal is still outstanding.
-- [ ] Point-in-time recovery enabled, 7 days minimum.
+- [ ] A restore from backup rehearsed, **timed** and written down (§18.3).
+      Runbook: [restore-runbook.md](restore-runbook.md). Both mechanical halves
+      pass -- `npm run db:verify-rebuild` (schema from migrations) and
+      `npm run backup:verify` (data round-trip). What is outstanding is the
+      human half: a real restore into a fresh project, with the dashboard
+      reconfiguration of §2, against a clock.
+- [ ] Point-in-time recovery enabled, 7 days minimum. **Not yet confirmed.**
+- [ ] A nightly logical dump scheduled, retained 30 days, stored outside the
+      Supabase project. The mechanism is proven (`npm run backup`) but nothing
+      runs it on a schedule and no destination is configured. Use `pg_dump` for
+      the production job. **Never** store a dump as a GitHub Actions artifact:
+      on a public repository anyone can download it.
+- [ ] Repository secrets set so CI runs the security tests -- see §7. Until
+      they are, a green CI run means types, lint, unit tests, build guards and
+      the dependency scan passed, and nothing about who can read whose rates.
+- [ ] SMTP configured, and self-signup disabled (F18, F19). Sign-in cannot work
+      reliably without the first, and the second lets anyone mint a principal.
+- [ ] **Not implemented, and accepted or scheduled deliberately:** TM10's
+      new-device alerting and TM14's edge rate limiting. Both need
+      infrastructure this build does not configure. Neither is a code gap that
+      can be closed by pretending otherwise.
 - [ ] Seed data removed from any project that will hold real rates. The seed
       refuses to run where non-demo partners exist, but it does not remove
       itself.

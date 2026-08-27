@@ -21,7 +21,7 @@ demonstrable, and nothing proceeds while the previous step's tests are red.
 | 5 | Board — `board_rates`, eligibility, ranking, markup, `record_quote_copy` | **done** — verified in a browser |
 | 6 | Correction, withdrawal, history | **done** |
 | 7 | Health and audit pages | **done** — per partner-pair |
-| 8 | Degraded states, accessibility, seed data, restore rehearsal | seed, degraded states and the a11y pass done; schema rebuild verified (`scripts/verify-rebuild.mjs`) and the runbook written ([docs/restore-runbook.md](docs/restore-runbook.md)); **full restore rehearsal outstanding** |
+| 8 | Degraded states, accessibility, seed data, restore rehearsal | seed, degraded states and the a11y pass done; runbook written ([docs/restore-runbook.md](docs/restore-runbook.md)) and both mechanical halves verified — schema (`npm run db:verify-rebuild`) and data round-trip (`npm run backup:verify`); **the timed human rehearsal is outstanding** |
 
 Step 1 ships *"with T1 to T26 green and no application at all. If the foundation
 is wrong, everything above it is wrong, and this is the cheapest point to find

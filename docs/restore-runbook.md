@@ -104,6 +104,23 @@ fingerprint-compares tables, columns, constraints, indexes, policies, functions
 and views against live. It is the mechanical half of this rehearsal, and it
 currently passes.
 
+The data half is rehearsed too:
+
+```bash
+npm run backup:verify
+```
+
+That dumps every row, rebuilds a scratch database from migrations alone, loads
+the dump into it, and compares each table's contents against live by an
+order-independent checksum -- including a byte-for-byte check that decimals
+survived. It also currently passes.
+
+**Where a dump must never go.** It contains the complete rate book. Not in the
+repository (the script refuses to write there). Not as a GitHub Actions
+artifact -- on a public repository, artifacts are downloadable by anyone with
+read access, which is everyone. §18.3's "stored outside the Supabase project"
+means private object storage with its own credentials.
+
 Order:
 
 1. Create a new Supabase project in the same region. Note its project ref.
@@ -196,17 +213,22 @@ project, **timed and written down**. Written down here.
 
 | Date | Path | Who | Time to §5 passing | Within RTO 4h | Notes |
 |---|---|---|---|---|---|
-| 2026-08-27 | Schema only, scratch database | automated (`verify-rebuild.mjs`) | ~1 min | n/a | Mechanical half only. 26 migrations applied from scratch; 12 tables / 161 columns / 80 constraints / 37 indexes / 24 policies / 41 functions / 2 views identical to live. |
-| *(pending)* | Full, fresh project | *(fill in)* | | | **Outstanding before go-live.** The data restore, the dashboard reconfiguration and §5 are untested by a human. |
+| 2026-08-27 | Schema only, scratch database | automated (`verify-rebuild.mjs`) | ~1 min | n/a | 26 migrations applied from scratch; 12 tables / 161 columns / 80 constraints / 37 indexes / 24 policies / 41 functions / 2 views identical to live. |
+| 2026-08-27 | Schema **and data**, scratch database | automated (`backup.mjs --verify`) | ~1 min | n/a | 74 rows across 12 tables dumped, restored into a schema rebuilt from migrations, every table checksum identical, decimals byte-for-byte. |
+| *(pending)* | Full, fresh project | *(fill in)* | | | **Outstanding before go-live.** The dashboard reconfiguration and §5 are untested by a human, and no restore has been timed. |
 
 ### What is still a belief
 
 Stated plainly, because §18.3's whole point is that an unrehearsed control is
 not a control:
 
-- **No nightly logical dump exists yet.** §18.3 requires one, retained 30 days,
-  stored outside the Supabase project. Until it does, §3.2 has no input and the
-  only real path is PITR.
+- **No nightly logical dump is SCHEDULED yet.** §18.3 requires one, retained 30
+  days, stored outside the Supabase project. The mechanism now exists and is
+  proven to round-trip (`npm run backup`), but nothing runs it on a schedule and
+  no destination is configured, so §3.2 still has no routine input and PITR
+  remains the only path that meets RPO 1 hour. For the production nightly dump,
+  prefer `pg_dump` -- it handles sequences, extensions and ownership, which
+  `backup.mjs` deliberately does not.
 - **PITR retention has not been confirmed** as enabled at 7 days or more.
 - **A full restore has never been performed.** The schema half is proven; the
   data half, the dashboard reconfiguration and the timing are not.

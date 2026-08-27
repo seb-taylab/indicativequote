@@ -1703,3 +1703,86 @@ The working habit is now: stop the dev server, delete `.next`, build, delete
 `.next`, restart. CI does not have this problem — it builds in a container with
 no dev server and no OneDrive — which is one more argument for the checkout not
 living in a synced folder.
+
+---
+
+## F30 — The data half of a restore had never been tried, and the obvious way to try it would have rounded every rate
+
+Pass 11 proved the schema rebuilds from `supabase/migrations/` exactly. The
+restore runbook's §3.2 then instructs: **schema from migrations, data from the
+dump.** The second half of that instruction had never been executed. §18.3 is
+unambiguous about what that means — *"a backup that has never been restored is
+a belief, not a control"* — and the belief here was load-bearing, because §3.2
+is the entire path for "the project is gone".
+
+`scripts/backup.mjs --verify` now closes it. It dumps every row, rebuilds a
+scratch database from migrations alone, loads the dump into it, and compares
+each table against live by an **order-independent checksum** (hash each row,
+sort the hashes, hash the result — row order is not a property of a table, so a
+comparison that depended on it would report differences that are not
+differences and hide real ones behind a reordering).
+
+It passes: **74 rows across 12 tables, every checksum identical.**
+
+### The trap: the obvious implementation silently rounds the entire rate book
+
+The natural way to write this is `select to_jsonb(t) from public.t t`, one JSON
+object per row. It is three lines and it is wrong.
+
+`to_jsonb` renders a NUMERIC as a JSON **number**, and `JSON.parse` turns a
+JSON number into a double. §12.7/TM16 exist to stop exactly this, and D13
+routes every decimal across every boundary as text — but the decimal contract
+had only ever been applied to the *application's* boundaries, never to a
+backup. Measured against the real data:
+
+| Stored | Via `to_jsonb` → `JSON.parse` |
+|---|---|
+| `1498.00000000000000` | `1498` |
+| `18.40000000000000` | `18.4` |
+| `1392.123456789012345` | `1392.1234567890124` |
+
+The first two lose scale. The third loses the value. And this happens in the
+one artefact you reach for when everything else has already gone wrong, having
+produced a file that looks perfect.
+
+So every column is cast to `::text` on the way out and passed back as a **text
+parameter** on the way in, leaving Postgres as the only thing that ever
+converts. The verification asserts it directly rather than trusting the design:
+five rates are compared byte-for-byte across the round trip.
+
+This is D13's own rule — decimals cross every boundary as text — applied to the
+boundary nobody had thought of as one.
+
+### Two smaller decisions
+
+**Triggers are disabled during the load.** Foreign keys reference rows that may
+not be loaded yet, and D11's composite tenant keys make a topological ordering
+fragile. `session_replication_role = replica` is what `pg_restore
+--disable-triggers` does, and every constraint is re-checked by the comparison
+that follows.
+
+**The script refuses to write a dump inside the working tree.** The file is the
+complete rate book; inside the repository it is one `git add -A` from a public
+commit. Verified by running it with `--out ./data.jsonl`, which is refused with
+an explanation.
+
+### The storage trap, recorded before anyone falls into it
+
+The obvious way to schedule a nightly dump on a project that already has CI is
+a GitHub Actions cron job that uploads the dump as an artifact. **On a public
+repository, artifacts are downloadable by anyone with read access — which is
+everyone.** That would publish every partner's rate book, defeating D1, TM1 and
+the entire access-control model in one convenience.
+
+Said plainly in the script header and in the runbook, because it is the exact
+shortcut a reasonable person reaches for.
+
+### What this is deliberately NOT
+
+It is not a replacement for `pg_dump`. It does not handle sequences,
+extensions, large objects or ownership, and the production nightly dump §18.3
+requires should use `pg_dump`. This exists to make the runbook's data half a
+rehearsed control instead of an assumption, which is a different job and one
+`pg_dump` could not do here — `pg_dump` is not installed on this machine, and
+shipping backup tooling that had never been executed would have been the
+failure §18.3 names.

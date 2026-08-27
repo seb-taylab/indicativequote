@@ -22,7 +22,9 @@
     "lint:decimals": "node scripts/assert-no-float-arithmetic.mjs",
     "test:degraded": "vitest run tests/degraded",
     "db:verify-rebuild": "node scripts/verify-rebuild.mjs",
-    "lint:logs": "node scripts/assert-no-rate-logging.mjs"
+    "lint:logs": "node scripts/assert-no-rate-logging.mjs",
+    "backup": "node scripts/backup.mjs",
+    "backup:verify": "node scripts/backup.mjs --verify"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
