@@ -1357,3 +1357,47 @@ exists yet, PITR retention is unconfirmed, and no full restore has ever been
 performed. The schema half is proven; the data half, the dashboard
 reconfiguration and the timing need a human with the clock running, before
 go-live.
+
+---
+
+## N4 addendum — OneDrive made a new file invisible to `git status`
+
+Recorded 2026-08-27, immediately after it happened, because it is the first
+time the OneDrive problem has been capable of *silent* damage rather than
+merely noisy failure.
+
+`scripts/verify-rebuild.mjs` was written, patched, and run successfully. Minutes
+later, with no intervening command touching it:
+
+- `ls -la scripts/` did not list it
+- `find . -name "*verify-rebuild*"` found nothing
+- **`git status --short` did not report it as untracked**
+
+The file had not been deleted. OneDrive had dehydrated it — replaced the local
+copy with a cloud placeholder — and every tool that walks the directory
+reported it as absent. About two minutes later it reappeared intact, with its
+original size and modification time.
+
+**Why this is worse than the failures already recorded under N4.** The earlier
+symptoms were loud: `EINVAL` on `readlink .next`, `EBUSY` on build artefacts, a
+sync-conflict file, and the clobbered `.git` directory that produced the orphan
+commit. Each of those stopped a command and demanded attention. This one does
+not. A `git add -A && git commit` issued during that window would have
+succeeded, reported success, and silently omitted the file — producing a commit
+that looks complete and is not.
+
+That is precisely the F20 failure mode, reproduced by the filesystem instead of
+by carelessness: work that exists in the running system but not in version
+control, discovered later, when a rebuild produces something other than what
+was tested.
+
+**Mitigation applied now:** new files are staged as soon as they are written
+rather than at the end of a work item, and `git status` output is checked
+against `git ls-files` when a file that should be untracked does not appear.
+The commit for this work item was verified to contain `scripts/verify-rebuild.mjs`
+before pushing.
+
+**The real fix remains the one N4 already recommends:** move the checkout out of
+the OneDrive-synced folder. This is now the fourth distinct class of damage from
+the same cause, and the first that can corrupt a commit without any error being
+shown.
