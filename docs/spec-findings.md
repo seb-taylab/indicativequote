@@ -1179,3 +1179,47 @@ first, then `.env`, with real environment variables still winning for CI.
 
 Worth noting the shape: a tool that is never exercised drifts out of working
 order silently, and its first real use is the worst moment to discover it.
+
+---
+
+## N7 — Lifecycle: reactivation and correction idempotency now tested
+
+**Severity: none. Status: NOTED. No defect found.**
+
+§20.3 names four lifecycle operations at High priority — supersession,
+correction, withdrawal, **reactivation** — and rates correction's idempotency
+key separately. Supersession had golden test 4; reactivation and the
+idempotency key had never been tested at all. 12 tests now cover them, and the
+implementation was correct throughout.
+
+The claims worth having pinned, each being a place a plausible implementation
+would get it wrong by **recomputing something it should have read**:
+
+- §13.2's *"reactivation does not resurrect expired rates, because validity is
+  stamped"*. A rate that expires while its partner is deactivated stays expired
+  when the partner returns. An implementation deriving validity on read — rather
+  than honouring D5's stamps — would quietly bring it back to life.
+- Deactivation is **not** withdrawal. A deactivated pair's rates remain stored
+  and return intact on reactivation; a withdrawn row does not, because
+  withdrawal is the partner's own decision and permanent for that row while
+  deactivation is backbone's and reversible.
+- §6.6's inherited expiry survives a **chain**. Correcting a correction still
+  carries the original `valid_until`, so a partner cannot ratchet a quote's life
+  forward one typo at a time.
+- A retried `correct_rate` with the same key returns the original submission and
+  writes no second row; the same key used by a *different* partner is not a
+  collision, because `rate_submissions_idem` is unique per
+  `(partner_id, idempotency_key)`.
+
+**A test that would have passed while asserting nothing.** The
+"refuses to correct a superseded row" case initially failed with
+`'no such rate'` instead of `'superseded'` — because the helper **deleted** the
+previous row before each submit, so the old id had vanished rather than been
+superseded. Had the assertion been written loosely (`expect(error).not.toBeNull()`)
+it would have passed, while testing that correcting a *non-existent* row fails
+— which nothing in §6.6 is about. The helper now has a `submitOver()` sibling,
+and the test asserts the old row is still present with `superseded_by` set
+before attempting the correction.
+
+That is the same failure mode as F24's conditional assertions: a green test
+that describes the wrong situation.
