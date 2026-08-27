@@ -8,7 +8,15 @@
  *
  * Applied files are recorded in app.schema_migrations so a re-run is a no-op.
  */
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+
+// .env.local first, then .env. `import 'dotenv/config'` reads .env ONLY, which
+// leaves DATABASE_URL undefined when the secrets live in .env.local -- the file
+// .gitignore protects and .env.example tells you to create. The runner then
+// reports "DATABASE_URL is not set" while the value is sitting right there.
+// Same defect the test helpers had; fixed in both places now.
+loadEnv({ path: '.env.local' });
+loadEnv();
 import { readdir, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

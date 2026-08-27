@@ -1115,3 +1115,67 @@ immediately — the RLS invariant that every business table is accounted for, an
 the migration-drift guard, which caught 0025 before it had been recorded in the
 ledger. Neither failure was a bug; both were the guards doing exactly what F20
 and F21 added them for.
+
+---
+
+## F25 — "expired, valid until HH:MM SGT" is ambiguous across a date boundary
+
+**Severity: medium. Status: CLOSED.**
+
+§14 specifies E7's reason as *"expired, valid until HH:MM SGT"* — a bare time,
+no date. SGT is UTC+8, and a partner who stops submitting leaves rates that
+expired on an earlier day, so the bare time can read as a moment **still ahead
+of the reader**.
+
+Caught while writing §20.3's timezone tests, and then confirmed by the clock
+rolling over during the work:
+
+```
+now                          27 Aug 08:33 SGT
+rate actually expired at     26 Aug 23:35 SGT
+E7 reported                  "expired, valid until 23:35 SGT"
+```
+
+An RM reading that at 08:33 sees an expiry fifteen hours in the future, on a
+row the board is simultaneously calling expired. §7's whole purpose is that the
+RM answers the question without asking anyone; a self-contradicting row sends
+them straight back to backbone.
+
+**Fix.** The spec's format is kept for the common case — the default TTL is 8
+hours, so most expiries are same-day — and the date is added only when the
+expiry falls on a different SGT date to now. §14 is honoured where it is
+unambiguous and repaired where it is not. Both forms are asserted, so the
+same-day case cannot silently acquire a date either.
+
+Verified live on the seeded rates after midnight:
+`"expired, valid until 26 Aug 23:35 SGT"`.
+
+**The rest of A-3 was already correct.** UTC storage with SGT display handles
+the day, month and year boundaries correctly, has no daylight-saving
+discontinuity, and never falls back to the machine's local zone — 10 tests now
+pin that, including the year rollover (`31 Dec 16:30 UTC` → `01 Jan 2027`).
+
+Two of those tests failed first time on **my expectations, not the code**:
+en-GB abbreviates September as "Sept", not "Sep", and `age()` rounds so 30
+seconds already reads as a minute. Both assertions were corrected to what the
+code actually does, because the dates were right and that was the claim under
+test.
+
+---
+
+## N6 — The migration runner had the same `.env.local` defect as the tests
+
+**Severity: low. Status: CLOSED.**
+
+`scripts/apply-migrations.mjs` used `import 'dotenv/config'`, which reads `.env`
+only — so it reported *"DATABASE_URL is not set. Copy .env.example to
+.env.local and fill it in"* while `.env.local` sat there fully populated. The
+advice in the error was the very thing that had already been done.
+
+The test helpers had the identical bug (fixed earlier); this was the second
+instance and went unnoticed because every migration until now had been applied
+through the Supabase MCP rather than the runner. Both now load `.env.local`
+first, then `.env`, with real environment variables still winning for CI.
+
+Worth noting the shape: a tool that is never exercised drifts out of working
+order silently, and its first real use is the worst moment to discover it.

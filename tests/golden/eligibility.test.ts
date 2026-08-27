@@ -280,6 +280,29 @@ describe('§14 E6–E9 -- these rows ARE rendered, below the divider, with a rea
     expect(b.ineligible[0]!.reason).toMatch(/^expired, valid until \d{2}:\d{2} SGT$/);
   });
 
+  it('E7 names the DATE when the expiry was not today (A-3)', async () => {
+    await reset();
+    // Expired 30 hours ago: yesterday in SGT, whatever the hour.
+    await q(
+      `update public.rates
+          set valid_from        = now() - interval '38 hours',
+              expiry_warning_at = now() - interval '32 hours',
+              valid_until       = now() - interval '30 hours'
+        where partner_pair_id = $1 and superseded_by is null and withdrawn_at is null`,
+      [ppId],
+    );
+    const b = await board();
+    expect(b.ineligible).toHaveLength(1);
+    // §14's bare "HH:MM SGT" is ambiguous across a date boundary: SGT is UTC+8
+    // and a partner who stops submitting leaves rates that expired on an
+    // earlier day, so a bare time can read as a moment still ahead of the
+    // reader. Observed live at 08:33 SGT on the 27th, where a rate that
+    // expired at 23:35 on the 26th had reported only "23:35 SGT".
+    expect(b.ineligible[0]!.reason).toMatch(
+      /^expired, valid until \d{2} [A-Z][a-z]{2,3} \d{2}:\d{2} SGT$/,
+    );
+  });
+
   it('E8 size not confirmed by partner', async () => {
     await q(`delete from public.rates where partner_pair_id = $1`, [ppId]);
     await partnerA.rpc('submit_rates', {
